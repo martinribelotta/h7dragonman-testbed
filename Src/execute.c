@@ -33,16 +33,37 @@ static CMDFUNC(cmd_gpio)
             };
             GPIO_TypeDef *portPtr = portMap[port - 'A'];
             if (argc >= 3) {
-               // write port
                if (sscanf(argv[2], "%d", &val) == 1) {
+                  // write port value
                   printf("Wrinting %d to %s\r\n", val, argv[1]);
                   HAL_GPIO_WritePin(portPtr, 1 << pin, val);
                   return 0;
+               } else {
+                  // TODO: Decode string for same format as bellow read info
                }
             } else {
-               // read port
+               // read port and info
+               static const char *const mode_text[] =
+                  { "Input", "Output", "Alternate", "Analog" };
                val = HAL_GPIO_ReadPin(portPtr, 1 << pin);
-               printf("%s = %d\r\n", argv[1], val);
+               int mode = (portPtr->MODER >> (pin * 2)) & 0x3;
+               printf("%s = %d (%s", argv[1], val, mode_text[mode]);
+               if (mode == 1) {
+                  static const char * const speed_text[] = {
+                     "low", "medium", "high", "very high"
+                  };
+                  int speed = (portPtr->OSPEEDR >> (pin * 2)) & 0x3;
+                  if ((portPtr->OTYPER >> pin) & 1)
+                     printf(" open drain");
+                  printf(" %s speed", speed_text[speed]);
+               }
+               static const char *const pull_text[] = {
+                  "", "pull up", "pull down", ""
+               };
+               int pull = (portPtr->PUPDR >> (pin * 2)) & 0x03;
+               if (pull > 0)
+                  printf(" %s", pull_text[pull]);
+               printf(")\r\n");
                return 0;
             }
          }
