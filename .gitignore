@@ -1,0 +1,8 @@
+build/*
+*.o
+*.d
+*.elf
+*.map
+*.hex
+*.bin
+*.lst
