@@ -226,7 +226,11 @@ $(BUILD_DIR):
 #######################################
 clean:
 	-rm -fR $(BUILD_DIR)
-  
+
+program: $(BUILD_DIR)/$(TARGET).elf
+	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg \
+		-c "program $< verify reset exit"
+
 #######################################
 # dependencies
 #######################################

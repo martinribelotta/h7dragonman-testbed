@@ -26,7 +26,7 @@ static CMDFUNC(cmd_gpio)
       int pin;
       int val;
       if (sscanf(argv[1], "P%c%d", &port, &pin) == 2) {
-         if (port >= 'A' && port <= 'K') {
+         if (port >= 'A' && port <= 'K' && pin >= 0 && pin <= 15) {
             static GPIO_TypeDef * const portMap[] = {
                GPIOA, GPIOB, GPIOC, GPIOD, GPIOE, GPIOF,
                GPIOG, GPIOH, GPIOI, GPIOJ, GPIOK
@@ -37,17 +37,18 @@ static CMDFUNC(cmd_gpio)
                if (sscanf(argv[2], "%d", &val) == 1) {
                   printf("Wrinting %d to %s\r\n", val, argv[1]);
                   HAL_GPIO_WritePin(portPtr, 1 << pin, val);
+                  return 0;
                }
             } else {
                // read port
                val = HAL_GPIO_ReadPin(portPtr, 1 << pin);
                printf("%s = %d\r\n", argv[1], val);
+               return 0;
             }
-            return 0;
          }
       }
    }
-   printf("usage: %s P[A..F][0..15] (0|1)\r\n", argv[0]);
+   printf("usage: %s P[A..K][0..15] (0|1)\r\n", argv[0]);
    return 0;
 }
 
