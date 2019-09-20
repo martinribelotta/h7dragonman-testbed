@@ -66,6 +66,8 @@ void Error_Handler(void);
 #define USER_LED_GPIO_Port GPIOA
 #define SDMMC_CD_Pin GPIO_PIN_10
 #define SDMMC_CD_GPIO_Port GPIOC
+#define RS485_DE_Pin GPIO_PIN_9
+#define RS485_DE_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

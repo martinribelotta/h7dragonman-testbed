@@ -3,13 +3,19 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <inttypes.h>
 
 #include <main.h>
+#include <bsp_driver_sd.h>
+#include <ff.h>
+#include <fatfs.h>
 
 #define CMDFUNC(name) int name(int argc, const char *const *argv)
 
 static CMDFUNC(cmd_gpio);
 static CMDFUNC(cmd_help);
+static CMDFUNC(cmd_sdinfo);
+static CMDFUNC(cmd_sdls);
 
 struct {
    const char *cmd;
@@ -17,6 +23,8 @@ struct {
 } commands[] = {
    { "gpio", cmd_gpio },
    { "help", cmd_help },
+   { "sdinfo", cmd_sdinfo },
+   { "sdls", cmd_sdls },
 };
 
 static CMDFUNC(cmd_gpio)
@@ -49,17 +57,19 @@ static CMDFUNC(cmd_gpio)
                int mode = (portPtr->MODER >> (pin * 2)) & 0x3;
                printf("%s = %d (%s", argv[1], val, mode_text[mode]);
                if (mode == 1) {
-                  static const char * const speed_text[] = {
-                     "low", "medium", "high", "very high"
-                  };
+                  static const char * const speed_text[] =
+                     { "low", "medium", "high", "very high" };
                   int speed = (portPtr->OSPEEDR >> (pin * 2)) & 0x3;
                   if ((portPtr->OTYPER >> pin) & 1)
                      printf(" open drain");
                   printf(" %s speed", speed_text[speed]);
+               } else if (mode == 2) {
+                  int hl = (pin >> 3) & 1;
+                  int alt = (portPtr->AFR[hl] >> (pin & 0x7)) & 0xF;
+                  printf(" AF%d", alt);
                }
-               static const char *const pull_text[] = {
-                  "", "pull up", "pull down", ""
-               };
+               static const char *const pull_text[] =
+                  { "", "pull up", "pull down", "" };
                int pull = (portPtr->PUPDR >> (pin * 2)) & 0x03;
                if (pull > 0)
                   printf(" %s", pull_text[pull]);
@@ -86,10 +96,55 @@ static CMDFUNC(cmd_help)
    return 0;
 }
 
+static CMDFUNC(cmd_sdinfo)
+{
+   if (BSP_SD_Init() == MSD_OK) {
+      HAL_SD_CardInfoTypeDef info;
+      BSP_SD_GetCardInfo(&info);
+      printf("CardType:     %"PRIu32 "\r\n", info.CardType);
+      printf("CardVersion:  %"PRIu32 "\r\n", info.CardVersion);
+      printf("Class:        %"PRIu32 "\r\n", info.Class);
+      printf("RelCardAdd:   %"PRIu32 "\r\n", info.RelCardAdd);
+      printf("BlockNbr:     %"PRIu32 "\r\n", info.BlockNbr);
+      printf("BlockSize:    %"PRIu32 "\r\n", info.BlockSize);
+      printf("LogBlockNbr:  %"PRIu32 "\r\n", info.LogBlockNbr);
+      printf("LogBlockSize: %"PRIu32 "\r\n", info.LogBlockSize);
+      printf("CardSpeed:    %"PRIu32 "\r\n", info.CardSpeed);
+   } else {
+      printf("Error init SD\r\n");
+   }
+   return 0;
+}
+
+static CMDFUNC(cmd_sdls)
+{
+   static DIR dir;
+   if (f_mount(&SDFatFS, SDPath, 1) != FR_OK) {
+      printf("Error mounting SD\r\n");
+      return -1;
+   }
+   if (f_opendir(&dir, SDPath) == FR_OK) {
+      static FILINFO inf;
+      while (f_readdir(&dir, &inf) == FR_OK) {
+         if (inf.fname[0] == 0)
+            break;
+         printf("  %s\r\n", inf.fname);
+      }
+   } else {
+      printf("Fail to open SD\r\n");
+   }
+   if (f_mount(NULL, SDPath, 1) != FR_OK) {
+      printf("Error unmounting SD\r\n");
+      return -1;
+   }
+   return 0;
+}
+
 int mrl_execute(int argc, const char * const * argv)
 {
    for (int i=0; i< (sizeof(commands)/sizeof(*commands)); i++)
       if (strcmp(commands[i].cmd, argv[0]) == 0)
          return commands[i].func(argc, argv);
+   printf("Unknown commando: \"%s\"\r\n", argv[0]);
    return 0;
 }

@@ -6,3 +6,10 @@ build/*
 *.hex
 *.bin
 *.lst
+Drivers/CMSIS/DSP/DSP_Lib_TestSuite/*
+Drivers/CMSIS/DSP/Examples/*
+Drivers/CMSIS/Lib/*
+Drivers/CMSIS/NN/*
+Drivers/CMSIS/RTOS*
+Drivers/CMSIS/Core_A/*
+Drivers/CMSIS/Device/*
