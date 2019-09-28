@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include <main.h>
 #include <bsp_driver_sd.h>
 #include <ff.h>
 #include <fatfs.h>
+#include <qspi.h>
 
 #define CMDFUNC(name) int name(int argc, const char *const *argv)
 
@@ -16,6 +18,8 @@ static CMDFUNC(cmd_gpio);
 static CMDFUNC(cmd_help);
 static CMDFUNC(cmd_sdinfo);
 static CMDFUNC(cmd_sdls);
+static CMDFUNC(cmd_qspi);
+static CMDFUNC(cmd_485);
 
 struct {
    const char *cmd;
@@ -25,6 +29,8 @@ struct {
    { "help", cmd_help },
    { "sdinfo", cmd_sdinfo },
    { "sdls", cmd_sdls },
+   { "qspi", cmd_qspi },
+   { "qspi", cmd_485 },
 };
 
 static CMDFUNC(cmd_gpio)
@@ -137,6 +143,76 @@ static CMDFUNC(cmd_sdls)
       printf("Error unmounting SD\r\n");
       return -1;
    }
+   return 0;
+}
+
+static CMDFUNC(cmd_qspi)
+{
+   printf("QSPI initializing...\r\n");
+   
+   static const char *msg[] = {
+      "OK",
+      "ERROR",
+      "BUSY",
+      "UNSUPPORT",
+      "Suspend",
+      "Protected"
+   };
+   
+   printf("QSPI status: %s\r\n", msg[BSP_QSPI_GetStatus()]);
+
+   
+   if (BSP_QSPI_Init() == QSPI_OK) {
+      printf("QSPI OK\r\n");
+   } else {
+      printf("QSPI FAIL\r\n");
+   }
+   return 0;
+}
+
+extern UART_HandleTypeDef huart8;
+extern UART_HandleTypeDef huart1;
+
+#define uart485 huart8
+
+static int readKey() {
+   uint8_t c;
+   if (HAL_UART_Receive(&huart1, &c, 1, 0) == HAL_OK)
+      return c;
+   return -1;
+}
+
+static void rs485_usage(const char *argv0)
+{
+   printf("USAGE: %s recv|send [data0 data1 data2...]\r\n", argv0);
+}
+
+static CMDFUNC(cmd_485)
+{
+   if (argc <= 1) {
+      rs485_usage(argv[0]);
+      return -1;
+   }
+   if (strcmp(argv[1], "send") == 0) {
+      HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 1);
+      for (int i=2; i<argc; i++) {
+         int c;
+         if (sscanf(argv[i], "%i", &c) == 1) {
+            HAL_UART_Transmit(&uart485, (uint8_t*) &c, 1, 0);
+         } else {
+            printf("cannot transmit %s\r\n", argv[i]);
+         }
+      }
+      HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 0);
+   } else if (strcmp(argv[1], "recv") == 0) {
+      HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 0);
+      while (readKey() == -1) {
+         uint8_t c;
+         if (HAL_UART_Receive(&uart485, &c, 1, 0) == HAL_OK)
+            printf("RECV: %c [%d, 0x%02X]\r\n", c, c, c);
+      }
+   } else
+      rs485_usage(argv[0]);
    return 0;
 }
 

@@ -12,3 +12,6 @@ SourceFiles=Src/main.c;Src/bsp_driver_sd.c;Src/sd_diskio.c;Src/fatfs.c;Src/usbh_
 HeaderPath=Drivers/STM32H7xx_HAL_Driver/Inc;Drivers/STM32H7xx_HAL_Driver/Inc/Legacy;Middlewares/Third_Party/FatFs/src;Middlewares/ST/STM32_USB_Device_Library/Core/Inc;Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc;Middlewares/ST/STM32_USB_Host_Library/Core/Inc;Middlewares/ST/STM32_USB_Host_Library/Class/AUDIO/Inc;Middlewares/ST/STM32_USB_Host_Library/Class/CDC/Inc;Middlewares/ST/STM32_USB_Host_Library/Class/HID/Inc;Middlewares/ST/STM32_USB_Host_Library/Class/MSC/Inc;Middlewares/ST/STM32_USB_Host_Library/Class/MTP/Inc;Drivers/CMSIS/Device/ST/STM32H7xx/Include;Drivers/CMSIS/Include;Inc;
 CDefines=USE_HAL_DRIVER;STM32H750xx;USE_HAL_DRIVER;STM32H750xx;
 
+[]
+SourceFiles=;;
+
