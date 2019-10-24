@@ -150,7 +150,6 @@ int main(void)
   {
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
-
     /* USER CODE BEGIN 3 */
     uint8_t ch;
     if (HAL_UART_Receive(&huart1, &ch, 1, 0) == HAL_OK) {
