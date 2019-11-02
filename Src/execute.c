@@ -10,7 +10,7 @@
 #include <bsp_driver_sd.h>
 #include <ff.h>
 #include <fatfs.h>
-#include <qspi.h>
+#include <sfud.h>
 
 #define CMDFUNC(name) int name(int argc, const char *const *argv)
 
@@ -30,7 +30,7 @@ struct {
    { "sdinfo", cmd_sdinfo },
    { "sdls", cmd_sdls },
    { "qspi", cmd_qspi },
-   { "qspi", cmd_485 },
+   { "485", cmd_485 },
 };
 
 static CMDFUNC(cmd_gpio)
@@ -105,12 +105,19 @@ static CMDFUNC(cmd_help)
    return 0;
 }
 
+static const char *card_type[] = {
+   "SDSC",
+   "SDHC/SDXC",
+   "unknown",
+   "secured",
+};
+
 static CMDFUNC(cmd_sdinfo)
 {
    if (BSP_SD_Init() == MSD_OK) {
       HAL_SD_CardInfoTypeDef info;
       BSP_SD_GetCardInfo(&info);
-      printf("CardType:     %"PRIu32 "\r\n", info.CardType);
+      printf("CardType:     %s\r\n", card_type[info.CardType]);
       printf("CardVersion:  %"PRIu32 "\r\n", info.CardVersion);
       printf("Class:        %"PRIu32 "\r\n", info.Class);
       printf("RelCardAdd:   %"PRIu32 "\r\n", info.RelCardAdd);
@@ -149,27 +156,91 @@ static CMDFUNC(cmd_sdls)
    return 0;
 }
 
+static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
+{
+    sfud_err result = SFUD_SUCCESS;
+    extern sfud_flash *sfud_dev;
+    const sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
+    size_t i;
+    /* prepare write data */
+    for (i = 0; i < size; i++)
+    {
+        data[i] = i;
+    }
+    /* erase test */
+    result = sfud_erase(flash, addr, size);
+    if (result == SFUD_SUCCESS)
+    {
+        printf("Erase the %s flash data finish. Start from 0x%08X, size is %zu.\r\n", flash->name, addr, size);
+    }
+    else
+    {
+        printf("Erase the %s flash data failed.\r\n", flash->name);
+        return;
+    }
+    /* write test */
+    result = sfud_write(flash, addr, size, data);
+    if (result == SFUD_SUCCESS)
+    {
+        printf("Write the %s flash data finish. Start from 0x%08X, size is %zu.\r\n", flash->name, addr, size);
+    }
+    else
+    {
+        printf("Write the %s flash data failed.\r\n", flash->name);
+        return;
+    }
+    /* read test */
+    result = sfud_read(flash, addr, size, data);
+    if (result == SFUD_SUCCESS)
+    {
+        printf("Read the %s flash data success. Start from 0x%08X, size is %zu. The data is:\r\n", flash->name, addr, size);
+        printf("Offset (h) 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\r\n");
+        for (i = 0; i < size; i++)
+        {
+            if (i % 16 == 0)
+            {
+                printf("[%08X] ", addr + i);
+            }
+            printf("%02X ", data[i]);
+            if (((i + 1) % 16 == 0) || i == size - 1)
+            {
+                printf("\r\n");
+            }
+        }
+        printf("\r\n");
+    }
+    else
+    {
+        printf("Read the %s flash data failed.\r\n", flash->name);
+    }
+    /* data check */
+    for (i = 0; i < size; i++)
+    {
+        if (data[i] != i % 256)
+        {
+            printf("Read and check write data has an error. Write the %s flash data failed.\r\n", flash->name);
+            break;
+        }
+    }
+    if (i == size)
+    {
+        printf("The %s flash test is success.\r\n", flash->name);
+    }
+}
+
+#define SFUD_DEMO_TEST_BUFFER_SIZE                     1024
+static uint8_t sfud_demo_test_buf[SFUD_DEMO_TEST_BUFFER_SIZE];
+
 static CMDFUNC(cmd_qspi)
 {
-   printf("QSPI initializing...\r\n");
-   
-   static const char *msg[] = {
-      "OK",
-      "ERROR",
-      "BUSY",
-      "UNSUPPORT",
-      "Suspend",
-      "Protected"
-   };
-   
-   printf("QSPI status: %s\r\n", msg[BSP_QSPI_GetStatus()]);
-
-   
-   if (BSP_QSPI_Init() == QSPI_OK) {
-      printf("QSPI OK\r\n");
-   } else {
-      printf("QSPI FAIL\r\n");
-   }
+   if (sfud_init() == SFUD_SUCCESS)
+   {
+      printf("qspi init OK\r\n");
+      /* enable qspi fast read mode, set four data lines width */
+      sfud_qspi_fast_read_enable(sfud_get_device(SFUD_W25_DEVICE_INDEX), 4);
+      sfud_demo(0, sizeof(sfud_demo_test_buf), sfud_demo_test_buf);
+   } else
+      printf("qspi init fail\r\n");
    return 0;
 }
 

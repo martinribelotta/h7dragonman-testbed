@@ -131,14 +131,6 @@ int main(void)
   MX_UART8_Init();
   /* USER CODE BEGIN 2 */
 
-#if 0
-  if (QSPI_Startup(0) == MEMORY_OK) {
-    printf("QSPI memory init ok\r\n");
-  } else {
-    printf("QSPI memory init FAIL\r\n");
-  }
-#endif
-
   printf("\e[96mWelcome...\e[39m\r\n");
   microrl_init(&mrl, mrl_print);
   microrl_set_execute_callback (&mrl, mrl_execute);
