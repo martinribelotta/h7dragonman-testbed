@@ -53,7 +53,24 @@ static CMDFUNC(cmd_gpio)
                   HAL_GPIO_WritePin(portPtr, 1 << pin, val);
                   return 0;
                } else {
+                  static const struct { const char *name; uint32_t mode; } modemap[] = {
+                     { "out", GPIO_MODE_OUTPUT_PP },
+                     { "in", GPIO_MODE_INPUT },
+                     { "outoc", GPIO_MODE_OUTPUT_OD },
+                     { "analog", GPIO_MODE_ANALOG },
+                  };
                   // TODO: Decode string for same format as bellow read info
+                  for (int i=0; i<(sizeof(modemap)/sizeof(*modemap)); i++) {
+                     if (strcmp(modemap[i].name, argv[2]) == 0) {
+                        /* Configure IO Direction mode (Input, Output, Alternate or Analog) */
+                        printf("Setting %s to %s\r\n", argv[1], modemap[i].name);
+                        uint32_t temp = portPtr->MODER;
+                        temp &= ~(GPIO_MODER_MODE0 << (pin * 2U));
+                        temp |= ((modemap[i].mode & 3) << (pin * 2U));
+                        portPtr->MODER = temp;
+                        return 0;
+                     }
+                  }
                }
             } else {
                // read port and info
@@ -85,7 +102,7 @@ static CMDFUNC(cmd_gpio)
          }
       }
    }
-   printf("usage: %s P[A..K][0..15] (0|1)\r\n", argv[0]);
+   printf("usage: %s P[A..K][0..15] (0|1|in|out|analog|outoc)\r\n", argv[0]);
    return 0;
 }
 
@@ -159,7 +176,6 @@ static CMDFUNC(cmd_sdls)
 static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
 {
     sfud_err result = SFUD_SUCCESS;
-    extern sfud_flash *sfud_dev;
     const sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
     size_t i;
     /* prepare write data */
@@ -171,7 +187,7 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
     result = sfud_erase(flash, addr, size);
     if (result == SFUD_SUCCESS)
     {
-        printf("Erase the %s flash data finish. Start from 0x%08X, size is %zu.\r\n", flash->name, addr, size);
+        printf("Erase the %s flash data finish. Start from 0x%08X, size is %zu.\r\n", flash->name, (unsigned int) addr, size);
     }
     else
     {
@@ -182,7 +198,7 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
     result = sfud_write(flash, addr, size, data);
     if (result == SFUD_SUCCESS)
     {
-        printf("Write the %s flash data finish. Start from 0x%08X, size is %zu.\r\n", flash->name, addr, size);
+        printf("Write the %s flash data finish. Start from 0x%08X, size is %zu.\r\n", flash->name, (unsigned int) addr, size);
     }
     else
     {
@@ -193,13 +209,13 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
     result = sfud_read(flash, addr, size, data);
     if (result == SFUD_SUCCESS)
     {
-        printf("Read the %s flash data success. Start from 0x%08X, size is %zu. The data is:\r\n", flash->name, addr, size);
+        printf("Read the %s flash data success. Start from 0x%08X, size is %zu. The data is:\r\n", flash->name, (unsigned int) addr, size);
         printf("Offset (h) 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\r\n");
         for (i = 0; i < size; i++)
         {
             if (i % 16 == 0)
             {
-                printf("[%08X] ", addr + i);
+                printf("[%08X] ", (unsigned int) (addr + i));
             }
             printf("%02X ", data[i]);
             if (((i + 1) % 16 == 0) || i == size - 1)
