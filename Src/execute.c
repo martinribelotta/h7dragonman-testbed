@@ -35,6 +35,15 @@ struct {
 
 static CMDFUNC(cmd_gpio)
 {
+   static const struct { const char *name; uint32_t mode; const char *help; } modemap[] = {
+      { "out", GPIO_MODE_OUTPUT_PP, "Output push pull" },
+      { "in", GPIO_MODE_INPUT, "Input" },
+      { "outod", GPIO_MODE_OUTPUT_OD, "Output open drain" },
+      { "alt", GPIO_MODE_AF_PP, "Alternate push pull" },
+      { "altod", GPIO_MODE_AF_OD, "Alternate open drain" },
+      { "analog", GPIO_MODE_ANALOG, "Analog" },
+   };
+
    if (argc >= 2) {
       char port;
       int pin;
@@ -53,13 +62,6 @@ static CMDFUNC(cmd_gpio)
                   HAL_GPIO_WritePin(portPtr, 1 << pin, val);
                   return 0;
                } else {
-                  static const struct { const char *name; uint32_t mode; } modemap[] = {
-                     { "out", GPIO_MODE_OUTPUT_PP },
-                     { "in", GPIO_MODE_INPUT },
-                     { "outoc", GPIO_MODE_OUTPUT_OD },
-                     { "analog", GPIO_MODE_ANALOG },
-                  };
-                  // TODO: Decode string for same format as bellow read info
                   for (int i=0; i<(sizeof(modemap)/sizeof(*modemap)); i++) {
                      if (strcmp(modemap[i].name, argv[2]) == 0) {
                         /* Configure IO Direction mode (Input, Output, Alternate or Analog) */
@@ -102,7 +104,9 @@ static CMDFUNC(cmd_gpio)
          }
       }
    }
-   printf("usage: %s P[A..K][0..15] (0|1|in|out|analog|outoc)\r\n", argv[0]);
+   printf("usage: %s P[A..K][0..15] (0|1|<mode>)\r\nWhere mode is one of:\r\n", argv[0]);
+   for (int i=0; i<(sizeof(modemap)/sizeof(*modemap)); i++)
+      printf("  %-15s %s\r\n", modemap[i].name, modemap[i].help);
    return 0;
 }
 
