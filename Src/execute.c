@@ -19,6 +19,7 @@ static CMDFUNC(cmd_help);
 static CMDFUNC(cmd_sdinfo);
 static CMDFUNC(cmd_sdls);
 static CMDFUNC(cmd_qspi);
+static CMDFUNC(cmd_eth);
 static CMDFUNC(cmd_485);
 
 struct {
@@ -30,6 +31,7 @@ struct {
    { "sdinfo", cmd_sdinfo },
    { "sdls", cmd_sdls },
    { "qspi", cmd_qspi },
+   { "eth", cmd_eth },
    { "485", cmd_485 },
 };
 
@@ -191,7 +193,7 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
     result = sfud_erase(flash, addr, size);
     if (result == SFUD_SUCCESS)
     {
-        printf("Erase the %s flash data finish. Start from 0x%08X, size is %zu.\r\n", flash->name, (unsigned int) addr, size);
+        printf("Erase the %s flash data finish. Start from 0x%08X, size is %u.\r\n", flash->name, (unsigned int) addr, size);
     }
     else
     {
@@ -202,7 +204,7 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
     result = sfud_write(flash, addr, size, data);
     if (result == SFUD_SUCCESS)
     {
-        printf("Write the %s flash data finish. Start from 0x%08X, size is %zu.\r\n", flash->name, (unsigned int) addr, size);
+        printf("Write the %s flash data finish. Start from 0x%08X, size is %u.\r\n", flash->name, (unsigned int) addr, size);
     }
     else
     {
@@ -213,7 +215,7 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
     result = sfud_read(flash, addr, size, data);
     if (result == SFUD_SUCCESS)
     {
-        printf("Read the %s flash data success. Start from 0x%08X, size is %zu. The data is:\r\n", flash->name, (unsigned int) addr, size);
+        printf("Read the %s flash data success. Start from 0x%08X, size is %u. The data is:\r\n", flash->name, (unsigned int) addr, size);
         printf("Offset (h) 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F\r\n");
         for (i = 0; i < size; i++)
         {
@@ -253,6 +255,32 @@ static uint8_t sfud_demo_test_buf[SFUD_DEMO_TEST_BUFFER_SIZE];
 
 static CMDFUNC(cmd_qspi)
 {
+   int freq;
+   if (sscanf(argv[1], "%i", &freq) == 1) {
+      RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = { 0 };
+      PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN|RCC_PERIPHCLK_USART1
+                                 |RCC_PERIPHCLK_UART8|RCC_PERIPHCLK_SDMMC
+                                 |RCC_PERIPHCLK_USB|RCC_PERIPHCLK_QSPI;
+      PeriphClkInitStruct.PLL2.PLL2M = 4;
+      PeriphClkInitStruct.PLL2.PLL2N = freq;
+      PeriphClkInitStruct.PLL2.PLL2P = 2;
+      PeriphClkInitStruct.PLL2.PLL2Q = 2;
+      PeriphClkInitStruct.PLL2.PLL2R = 2;
+      PeriphClkInitStruct.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_1;
+      PeriphClkInitStruct.PLL2.PLL2VCOSEL = RCC_PLL2VCOWIDE;
+      PeriphClkInitStruct.PLL2.PLL2FRACN = 0;
+      PeriphClkInitStruct.QspiClockSelection = RCC_QSPICLKSOURCE_PLL2;
+      PeriphClkInitStruct.SdmmcClockSelection = RCC_SDMMCCLKSOURCE_PLL;
+      PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL;
+      PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_D2PCLK1;
+      PeriphClkInitStruct.Usart16ClockSelection = RCC_USART16CLKSOURCE_D2PCLK2;
+      PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_PLL;
+      if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+      {
+       Error_Handler();
+      }
+   }
+
    if (sfud_init() == SFUD_SUCCESS)
    {
       printf("qspi init OK\r\n");
@@ -261,6 +289,11 @@ static CMDFUNC(cmd_qspi)
       sfud_demo(0, sizeof(sfud_demo_test_buf), sfud_demo_test_buf);
    } else
       printf("qspi init fail\r\n");
+   return 0;
+}
+
+static CMDFUNC(cmd_eth)
+{
    return 0;
 }
 
