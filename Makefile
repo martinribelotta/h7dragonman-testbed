@@ -305,6 +305,9 @@ program: $(BUILD_DIR)/$(TARGET).elf
 debug: $(BUILD_DIR)/$(TARGET).elf
 	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg
 
+loadqspi:
+	$(MAKE) -C qspiloader run
+
 #######################################
 # dependencies
 #######################################
