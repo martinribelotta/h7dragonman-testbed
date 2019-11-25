@@ -89,7 +89,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
     else if (write_size)
     {
         /* send data */
-        qspi_send_then_recv(write_buf, write_size, NULL, NULL);
+        qspi_send_then_recv(write_buf, write_size, NULL, 0);
     }
 
     /* set cs pin */
@@ -185,7 +185,12 @@ static void retry_delay_100us(void)
     while (delay--);
 }
 
-static spi_user_data spi1 = { .spix = &hqspi, .cs_gpiox = NULL, .cs_gpio_pin = NULL };
+static spi_user_data spi1 = {
+    .spix = &hqspi,
+    .cs_gpiox = NULL,
+    .cs_gpio_pin = 0
+};
+
 sfud_err sfud_spi_port_init(sfud_flash *flash)
 {
     sfud_err result = SFUD_SUCCESS;
