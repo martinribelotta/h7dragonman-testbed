@@ -252,7 +252,7 @@ int main() {
       uint32_t addr = 0;
       while (1) {
          size_t readed = read(fd, sector, sizeof(sector));
-         if (readed <= 0)
+         if (readed == 0 || readed == -1)
             break;
          sfud_err e = sfud_write(flash, addr, readed, (const uint8_t *) sector);
          if (e != SFUD_SUCCESS) {

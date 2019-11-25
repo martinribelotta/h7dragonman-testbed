@@ -71,4 +71,5 @@ run: all
 	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg \
 		-c "init" \
 		-c "set firmware \"$(ELF)\"" \
+      -c "set binary_file \"$(BINARY_FILE)\"" \
 		-f do.tcl
