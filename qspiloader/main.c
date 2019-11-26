@@ -1,4 +1,5 @@
 #include <stm32h7xx_hal.h>
+#include <stm32h7xx_hal_gpio.h>
 #include <sfud.h>
 
 #include <stdio.h>
@@ -168,6 +169,85 @@ void PendSV_Handler()     { hostExit(8); }
 void SysTick_Handler()    { HAL_IncTick(); }
 
 static char sector[4 * 1024];
+static char temporal[4 * 1024];
+
+/**
+  * @brief  Configure the QSPI in memory-mapped mode
+  * @retval QSPI memory status
+  */
+static HAL_StatusTypeDef QSPI_EnableMemoryMappedMode()
+{
+
+   QSPI_CommandTypeDef      s_command;
+   QSPI_MemoryMappedTypeDef s_mem_mapped_cfg;
+/*   const sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
+   uint8_t status;
+   sfud_read_status(flash, &status);
+   status |= 1 << 6;
+   sfud_write_status(flash, true, status);*/
+
+   s_command.Instruction = SFUD_CMD_QUAD_OUTPUT_READ_DATA;
+   s_command.InstructionMode = QSPI_INSTRUCTION_1_LINE;
+   s_command.Address = 0;
+   s_command.AddressSize = QSPI_ADDRESS_24_BITS;
+   s_command.AddressMode = QSPI_ADDRESS_1_LINE;
+   s_command.AlternateBytes = 0;
+   s_command.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+   s_command.AlternateBytesSize = 0;
+   s_command.DummyCycles = 8;
+   s_command.NbData = 0;
+   s_command.DataMode = QSPI_DATA_4_LINES;
+   s_command.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
+   s_command.DdrMode = QSPI_DDR_MODE_DISABLE;
+   s_command.DdrHoldHalfCycle = QSPI_DDR_HHC_ANALOG_DELAY;
+
+   /* Configure the memory mapped mode */
+   s_mem_mapped_cfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_DISABLE;
+   s_mem_mapped_cfg.TimeOutPeriod     = 0;
+
+   return HAL_QSPI_MemoryMapped(&hqspi, &s_command, &s_mem_mapped_cfg);
+}
+
+static void runCodeFromQSPI(void) __attribute__ ((noreturn));
+
+static void hexdump(__IO uint32_t *ptr, size_t n)
+{
+   for (size_t i=0; i<n; i++)
+      printf("%04X: 0x%08lX\n", i*4, ptr[i]);
+}
+
+static void runCodeFromQSPI(void)
+{
+   if (QSPI_EnableMemoryMappedMode() == HAL_OK) {
+#if 0
+      QUADSPI->CCR = 0x00000166; 
+      while (QUADSPI->SR & QUADSPI_SR_BUSY) ;
+      QUADSPI->CCR = 0x00000199;
+      while (QUADSPI->SR & QUADSPI_SR_BUSY) ;
+      QUADSPI->CCR = 0x0106;
+      while(!(QUADSPI->SR & 0x04)); /* Wait for FTF flag to be set */
+      QUADSPI->DR = 0x7F;
+      while(!(QUADSPI->SR & 0x02)); /* Wait for TCF flag to be set */
+      QUADSPI->CCR =
+         (0x0F002C00 | QSPI_CCR_DDRM | QSPI_CCR_DCYC |
+            FAST_READ_CMD | QSPI_CCR_IMODE | QSPI_CCR_SIOO | QSPI_CCR_ABMODE);
+#endif
+      
+      printf("Running from QSPI\n");
+      hexdump((__IO uint32_t*) QSPI_BASE, 32);
+      /*
+      HAL_DeInit();
+      __disable_irq();
+      __set_MSP(*(__IO uint32_t*) QSPI_BASE);
+      void (*funcPtr)(void) = (void (*)(void)) (*(__IO uint32_t*) (QSPI_BASE + 4));
+      funcPtr();
+      */
+   } else
+      printf("Error entering memory mapped mode\n");
+   // Can not reach this code
+   while (1)
+      hostExit(255);
+}
 
 static const char *sfud_error_str[] = {
     "Not an error",
@@ -221,9 +301,9 @@ int main() {
 
    hqspi.Instance = QUADSPI;
    hqspi.Init.ClockPrescaler = 0;
-   hqspi.Init.FifoThreshold = 1;
+   hqspi.Init.FifoThreshold = 4;
    hqspi.Init.SampleShifting = QSPI_SAMPLE_SHIFTING_NONE;
-   hqspi.Init.FlashSize = 24;
+   hqspi.Init.FlashSize = 21; // 4MBytes
    hqspi.Init.ChipSelectHighTime = QSPI_CS_HIGH_TIME_3_CYCLE;
    hqspi.Init.ClockMode = QSPI_CLOCK_MODE_0;
    hqspi.Init.FlashID = QSPI_FLASH_ID_2;
@@ -231,34 +311,52 @@ int main() {
    if (HAL_QSPI_Init(&hqspi) != HAL_OK)
       Error_Handler();
 
-   if (sfud_init() == SFUD_SUCCESS) {
-      printf("qspi init OK\r\n");
-      /* enable qspi fast read mode, set four data lines width */
-      sfud_qspi_fast_read_enable(sfud_get_device(SFUD_W25_DEVICE_INDEX), 4);
-      // sfud_demo(0, sizeof(sfud_demo_test_buf), sfud_demo_test_buf);
-   } else
-      printf("qspi init fail\r\n");
+   sfud_err e = sfud_init();
+   if (e != SFUD_SUCCESS) {
+      printf("qspi init fail. Error is %s\r\n", sfud_error_str[e]);
+      Error_Handler();
+   }
+   printf("qspi init OK.\n");
+   printf("Switch to 4 bit mode\r\n");
+   sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
+   /* enable qspi fast read mode, set four data lines width */
+   e = sfud_qspi_fast_read_enable(flash, 4);
+   if (e != SFUD_SUCCESS) {
+      printf("qspi init fail. Error is %s\r\n", sfud_error_str[e]);
+      Error_Handler();
+   }
+   printf("QSPI in 4 bit mode\n");
 
    hostGetCommandLine(cmdLine, sizeof(cmdLine) - 1);
+   if (cmdLine[0] == 0) {
+      runCodeFromQSPI();
+   }
    printf("Cmd line: <<%s>>\n", cmdLine);
 
    FILE *f = fopen(cmdLine, "rb");
    if (f) {
       printf("Writing %s to flash\n[", cmdLine);
-      const sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
       uint32_t addr = 0;
       while (1) {
          size_t readed = fread(sector, sizeof(char), sizeof(sector), f);
          if (readed == 0 || readed == -1)
             break;
-         sfud_err e = sfud_erase_write(flash, addr, readed, (const uint8_t *) sector);
+         e = sfud_erase_write(flash, addr, readed, (const uint8_t *) sector);
          if (e != SFUD_SUCCESS) {
             printf("\nError writing qspi: %s\n", sfud_error_str[e]);
             hostExit(-2);
-         } else {
-            printf("#");
-            fflush(stdout);
          }
+         e = sfud_read(flash, addr, readed, (uint8_t*) temporal);
+         if (e != SFUD_SUCCESS) {
+            printf("\nError reading qspi: %s\n", sfud_error_str[e]);
+            hostExit(-3);
+         }
+         if (memcmp(temporal, sector, readed) != 0) {
+            printf("Error verify write\n");
+            hostExit(-4);
+         }
+         printf("#");
+         fflush(stdout);
          addr += readed;
       }
       fclose(f);
