@@ -152,10 +152,8 @@ int hostGetCommandLine(char *buf, size_t len) {
 }
 
 static char cmdLine[128];
-static char linebuf[128];
 
 void _init() {
-   __disable_irq();
    initialise_monitor_handles();
 }
 
@@ -167,9 +165,9 @@ void UsageFault_Handler() { hostExit(5); }
 void SVC_Handler()        { hostExit(6); }
 void DebugMon_Handler()   { hostExit(7); }
 void PendSV_Handler()     { hostExit(8); }
-void SysTick_Handler()    { /*hostExit(9);*/ }
+void SysTick_Handler()    { HAL_IncTick(); }
 
-static char sector[64 * 1024];
+static char sector[4 * 1024];
 
 static const char *sfud_error_str[] = {
     "Not an error",
@@ -181,7 +179,6 @@ static const char *sfud_error_str[] = {
 };
 
 int main() {
-   setvbuf(stdout, linebuf, _IOLBF, sizeof(linebuf));
    printf("Flash writer utility\n");
 
    HAL_Init();
@@ -245,16 +242,16 @@ int main() {
    hostGetCommandLine(cmdLine, sizeof(cmdLine) - 1);
    printf("Cmd line: <<%s>>\n", cmdLine);
 
-   int fd = open(cmdLine, O_RDONLY);
-   if (fd != -1) {
+   FILE *f = fopen(cmdLine, "rb");
+   if (f) {
       printf("Writing %s to flash\n[", cmdLine);
       const sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
       uint32_t addr = 0;
       while (1) {
-         size_t readed = read(fd, sector, sizeof(sector));
+         size_t readed = fread(sector, sizeof(char), sizeof(sector), f);
          if (readed == 0 || readed == -1)
             break;
-         sfud_err e = sfud_write(flash, addr, readed, (const uint8_t *) sector);
+         sfud_err e = sfud_erase_write(flash, addr, readed, (const uint8_t *) sector);
          if (e != SFUD_SUCCESS) {
             printf("\nError writing qspi: %s\n", sfud_error_str[e]);
             hostExit(-2);
@@ -264,7 +261,7 @@ int main() {
          }
          addr += readed;
       }
-      close(fd);
+      fclose(f);
       printf("]\nDone\n");
    } else
       perror("open file");
