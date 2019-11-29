@@ -62,7 +62,7 @@
   */
 
 /* USER CODE BEGIN EXPORTED_TYPES */
-
+int CDC_getByte(uint8_t *b);
 /* USER CODE END EXPORTED_TYPES */
 
 /**

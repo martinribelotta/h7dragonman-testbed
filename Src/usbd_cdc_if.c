@@ -23,6 +23,7 @@
 #include "usbd_cdc_if.h"
 
 /* USER CODE BEGIN INCLUDE */
+#include <ringbuffer.h>
 
 /* USER CODE END INCLUDE */
 
@@ -99,7 +100,7 @@ uint8_t UserRxBufferFS[APP_RX_DATA_SIZE];
 uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
 /* USER CODE BEGIN PRIVATE_VARIABLES */
-
+RingBuffer *rxBuffer;
 /* USER CODE END PRIVATE_VARIABLES */
 
 /**
@@ -157,7 +158,7 @@ static int8_t CDC_Init_FS(void)
   /* USER CODE BEGIN 3 */
   /* Set Application Buffers */
   USBD_CDC_SetTxBuffer(&hUsbDeviceFS, UserTxBufferFS, 0);
-  USBD_CDC_SetRxBuffer(&hUsbDeviceFS, UserRxBufferFS);
+  rxBuffer = ringBufferInit(APP_RX_DATA_SIZE);
   return (USBD_OK);
   /* USER CODE END 3 */
 }
@@ -169,6 +170,7 @@ static int8_t CDC_Init_FS(void)
 static int8_t CDC_DeInit_FS(void)
 {
   /* USER CODE BEGIN 4 */
+  ringBufferDestroy(rxBuffer);
   return (USBD_OK);
   /* USER CODE END 4 */
 }
@@ -265,6 +267,8 @@ static int8_t CDC_Receive_FS(uint8_t* Buf, uint32_t *Len)
   /* USER CODE BEGIN 6 */
   USBD_CDC_SetRxBuffer(&hUsbDeviceFS, &Buf[0]);
   USBD_CDC_ReceivePacket(&hUsbDeviceFS);
+  for (int i=0; i<*Len; i++)
+    ringBufferAdd(rxBuffer, &Buf[i]);
   return (USBD_OK);
   /* USER CODE END 6 */
 }
@@ -295,7 +299,14 @@ uint8_t CDC_Transmit_FS(uint8_t* Buf, uint16_t Len)
 }
 
 /* USER CODE BEGIN PRIVATE_FUNCTIONS_IMPLEMENTATION */
-
+int CDC_getByte(uint8_t *b)
+{
+  uint8_t *ptr = ringBufferGet(rxBuffer);
+  if (!ptr)
+    return 0;
+  *b = *ptr;
+  return 1;
+}
 /* USER CODE END PRIVATE_FUNCTIONS_IMPLEMENTATION */
 
 /**

@@ -11,29 +11,51 @@
 #include <ff.h>
 #include <fatfs.h>
 #include <sfud.h>
+#include <usbd_cdc_if.h>
 
 #define CMDFUNC(name) int name(int argc, const char *const *argv)
+#define uart485 huart8
+
+static int retcode = 0;
+
+extern UART_HandleTypeDef huart8;
+extern UART_HandleTypeDef huart1;
 
 static CMDFUNC(cmd_gpio);
 static CMDFUNC(cmd_help);
 static CMDFUNC(cmd_sdinfo);
 static CMDFUNC(cmd_sdls);
 static CMDFUNC(cmd_qspi);
+static CMDFUNC(cmd_usb);
 static CMDFUNC(cmd_eth);
 static CMDFUNC(cmd_485);
+
+static CMDFUNC(cmd_retcode) {
+   printf("%d\r\n", retcode);
+   return retcode;
+}
 
 struct {
    const char *cmd;
    int (*func)(int, const char * const *);
 } commands[] = {
+   { "$?", cmd_retcode },
    { "gpio", cmd_gpio },
    { "help", cmd_help },
    { "sdinfo", cmd_sdinfo },
    { "sdls", cmd_sdls },
    { "qspi", cmd_qspi },
+   { "usb", cmd_usb },
    { "eth", cmd_eth },
    { "485", cmd_485 },
 };
+
+static int readKey() {
+   uint8_t c;
+   if (HAL_UART_Receive(&huart1, &c, 1, 0) == HAL_OK)
+      return c;
+   return -1;
+}
 
 static CMDFUNC(cmd_gpio)
 {
@@ -292,21 +314,42 @@ static CMDFUNC(cmd_qspi)
    return 0;
 }
 
+static CMDFUNC(cmd_usb)
+{
+   if (argc > 1) {
+      if (strcmp(argv[1], "recv") == 0) {
+         while (readKey() == -1) {
+            uint8_t c;
+            if (CDC_getByte(&c))
+               printf("RECV 0x%02X [%c]\r\n", c, c);
+         }
+         return 0;
+      }
+      if (strcmp(argv[1], "send") == 0) {
+         extern USBD_HandleTypeDef hUsbDeviceFS;
+         USBD_CDC_HandleTypeDef *cdc = (USBD_CDC_HandleTypeDef *) hUsbDeviceFS.pClassData;;
+         for (int i=2; i<argc; i++) {
+            int c;
+            if (sscanf(argv[i], "%i", &c) == 1) {
+               while (cdc->TxState == 1)
+                  ;
+               CDC_Transmit_FS((uint8_t*) &c, 1);
+            } else {
+               while (cdc->TxState == 1)
+                  ;
+               CDC_Transmit_FS((uint8_t*) argv[i], strlen(argv[i]));
+            }
+         }
+         return 0;
+      }
+   }
+   printf("usage: %s recv|send\r\n", argv[0]);
+   return -1;
+}
+
 static CMDFUNC(cmd_eth)
 {
    return 0;
-}
-
-extern UART_HandleTypeDef huart8;
-extern UART_HandleTypeDef huart1;
-
-#define uart485 huart8
-
-static int readKey() {
-   uint8_t c;
-   if (HAL_UART_Receive(&huart1, &c, 1, 0) == HAL_OK)
-      return c;
-   return -1;
 }
 
 static void rs485_usage(const char *argv0)
@@ -347,7 +390,7 @@ int mrl_execute(int argc, const char * const * argv)
 {
    for (int i=0; i< (sizeof(commands)/sizeof(*commands)); i++)
       if (strcmp(commands[i].cmd, argv[0]) == 0)
-         return commands[i].func(argc, argv);
+         return retcode = commands[i].func(argc, argv);
    printf("Unknown commando: \"%s\"\r\n", argv[0]);
    return 0;
 }
