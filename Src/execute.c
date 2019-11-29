@@ -29,8 +29,10 @@ static CMDFUNC(cmd_qspi);
 static CMDFUNC(cmd_usb);
 static CMDFUNC(cmd_eth);
 static CMDFUNC(cmd_485);
+static CMDFUNC(cmd_can);
 
-static CMDFUNC(cmd_retcode) {
+static CMDFUNC(cmd_retcode)
+{
    printf("%d\r\n", retcode);
    return retcode;
 }
@@ -38,19 +40,22 @@ static CMDFUNC(cmd_retcode) {
 struct {
    const char *cmd;
    int (*func)(int, const char * const *);
+   const char *help;
 } commands[] = {
-   { "$?", cmd_retcode },
-   { "gpio", cmd_gpio },
-   { "help", cmd_help },
-   { "sdinfo", cmd_sdinfo },
-   { "sdls", cmd_sdls },
-   { "qspi", cmd_qspi },
-   { "usb", cmd_usb },
-   { "eth", cmd_eth },
-   { "485", cmd_485 },
+   { "$?", cmd_retcode, "show last return code" },
+   { "help", cmd_help, "show this help" },
+   { "gpio", cmd_gpio, "gpio subsystem" },
+   { "sdinfo", cmd_sdinfo, "show sd information" },
+   { "sdls", cmd_sdls, "ls on SDCard" },
+   { "qspi", cmd_qspi, "qspi subsystem" },
+   { "usb", cmd_usb, "usb subsystem" },
+   { "eth", cmd_eth, "ethernet subsystem" },
+   { "485", cmd_485, "rs485 subsystem" },
+   { "can", cmd_can, "CANBus subsystem" },
 };
 
-static int readKey() {
+static int readKey()
+{
    uint8_t c;
    if (HAL_UART_Receive(&huart1, &c, 1, 0) == HAL_OK)
       return c;
@@ -146,7 +151,7 @@ static CMDFUNC(cmd_help)
       __DATE__, __TIME__,
       freq_mhz, freq_frac);
    for (int i=0; i< (sizeof(commands)/sizeof(*commands)); i++)
-      printf("  %s\r\n", commands[i].cmd);
+      printf("  %-30s %s\r\n", commands[i].cmd, commands[i].help);
    return 0;
 }
 
@@ -349,40 +354,42 @@ static CMDFUNC(cmd_usb)
 
 static CMDFUNC(cmd_eth)
 {
+   // TODO Implement me
    return 0;
-}
-
-static void rs485_usage(const char *argv0)
-{
-   printf("USAGE: %s recv|send [data0 data1 data2...]\r\n", argv0);
 }
 
 static CMDFUNC(cmd_485)
 {
-   if (argc <= 1) {
-      rs485_usage(argv[0]);
-      return -1;
-   }
-   if (strcmp(argv[1], "send") == 0) {
-      HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 1);
-      for (int i=2; i<argc; i++) {
-         int c;
-         if (sscanf(argv[i], "%i", &c) == 1) {
-            HAL_UART_Transmit(&uart485, (uint8_t*) &c, 1, 0);
-         } else {
-            printf("cannot transmit %s\r\n", argv[i]);
+   if (argc > 1) {
+      if (strcmp(argv[1], "send") == 0) {
+         HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 1);
+         for (int i=2; i<argc; i++) {
+            int c;
+            if (sscanf(argv[i], "%i", &c) == 1) {
+               HAL_UART_Transmit(&uart485, (uint8_t*) &c, 1, 0);
+            } else {
+               printf("cannot transmit %s\r\n", argv[i]);
+            }
          }
+         HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 0);
+         return 0;
+      } else if (strcmp(argv[1], "recv") == 0) {
+         HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 0);
+         while (readKey() == -1) {
+            uint8_t c;
+            if (HAL_UART_Receive(&uart485, &c, 1, 0) == HAL_OK)
+               printf("RECV: %c [%d, 0x%02X]\r\n", c, c, c);
+         }
+         return 0;
       }
-      HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 0);
-   } else if (strcmp(argv[1], "recv") == 0) {
-      HAL_GPIO_WritePin(RS485_DE_GPIO_Port, RS485_DE_Pin, 0);
-      while (readKey() == -1) {
-         uint8_t c;
-         if (HAL_UART_Receive(&uart485, &c, 1, 0) == HAL_OK)
-            printf("RECV: %c [%d, 0x%02X]\r\n", c, c, c);
-      }
-   } else
-      rs485_usage(argv[0]);
+   }
+   printf("USAGE: %s recv|send [data0 data1 data2...]\r\n", argv[0]);
+   return -1;
+}
+
+static CMDFUNC(cmd_can)
+{
+   // TODO Implement me
    return 0;
 }
 
@@ -392,5 +399,5 @@ int mrl_execute(int argc, const char * const * argv)
       if (strcmp(commands[i].cmd, argv[0]) == 0)
          return retcode = commands[i].func(argc, argv);
    printf("Unknown commando: \"%s\"\r\n", argv[0]);
-   return 0;
+   return -1;
 }
