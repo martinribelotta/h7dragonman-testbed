@@ -5,7 +5,6 @@
 #define WEAK __attribute__ ((weak))
 #define WEAK_INIT __attribute__ ((weak, constructor))
 
-#define UNUSED(x) (void)x
 #define SET_ERR(e) (r->_errno = e)
 
 #ifndef USE_SEMIHOST
