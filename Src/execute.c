@@ -279,44 +279,150 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
 
 #define SFUD_DEMO_TEST_BUFFER_SIZE                     1024
 static uint8_t sfud_demo_test_buf[SFUD_DEMO_TEST_BUFFER_SIZE];
+static volatile bool qspi_inited = false;
+
+static void sfud_printRet(const char *func, sfud_err errorCode)
+{
+   static const char *sfud_error_text[] = {
+    "success",
+    "not found or not supported",
+    "write error",
+    "read error",
+    "timeout error",
+    "address is out of flash bound",
+   };
+   printf("SFUD %s return: %s\r\n", func, sfud_error_text[errorCode]);
+}
 
 static CMDFUNC(cmd_qspi)
 {
-   int freq;
-   if (sscanf(argv[1], "%i", &freq) == 1) {
-      RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = { 0 };
-      PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN|RCC_PERIPHCLK_USART1
-                                 |RCC_PERIPHCLK_UART8|RCC_PERIPHCLK_SDMMC
-                                 |RCC_PERIPHCLK_USB|RCC_PERIPHCLK_QSPI;
-      PeriphClkInitStruct.PLL2.PLL2M = 4;
-      PeriphClkInitStruct.PLL2.PLL2N = freq;
-      PeriphClkInitStruct.PLL2.PLL2P = 2;
-      PeriphClkInitStruct.PLL2.PLL2Q = 2;
-      PeriphClkInitStruct.PLL2.PLL2R = 2;
-      PeriphClkInitStruct.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_1;
-      PeriphClkInitStruct.PLL2.PLL2VCOSEL = RCC_PLL2VCOWIDE;
-      PeriphClkInitStruct.PLL2.PLL2FRACN = 0;
-      PeriphClkInitStruct.QspiClockSelection = RCC_QSPICLKSOURCE_PLL2;
-      PeriphClkInitStruct.SdmmcClockSelection = RCC_SDMMCCLKSOURCE_PLL;
-      PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL;
-      PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_D2PCLK1;
-      PeriphClkInitStruct.Usart16ClockSelection = RCC_USART16CLKSOURCE_D2PCLK2;
-      PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_PLL;
-      if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
-      {
-       Error_Handler();
+   if (argc == 1)
+      goto usage;
+
+   if (strcmp(argv[1], "freq") == 0) {
+      int freq;
+      if (argc != 3)
+         goto usage;
+      if (sscanf(argv[2], "%i", &freq) == 1) {
+         RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = { 0 };
+         PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_FDCAN|RCC_PERIPHCLK_USART1
+                                    |RCC_PERIPHCLK_UART8|RCC_PERIPHCLK_SDMMC
+                                    |RCC_PERIPHCLK_USB|RCC_PERIPHCLK_QSPI;
+         PeriphClkInitStruct.PLL2.PLL2M = 4;
+         PeriphClkInitStruct.PLL2.PLL2N = freq;
+         PeriphClkInitStruct.PLL2.PLL2P = 2;
+         PeriphClkInitStruct.PLL2.PLL2Q = 2;
+         PeriphClkInitStruct.PLL2.PLL2R = 2;
+         PeriphClkInitStruct.PLL2.PLL2RGE = RCC_PLL2VCIRANGE_1;
+         PeriphClkInitStruct.PLL2.PLL2VCOSEL = RCC_PLL2VCOWIDE;
+         PeriphClkInitStruct.PLL2.PLL2FRACN = 0;
+         PeriphClkInitStruct.QspiClockSelection = RCC_QSPICLKSOURCE_PLL2;
+         PeriphClkInitStruct.SdmmcClockSelection = RCC_SDMMCCLKSOURCE_PLL;
+         PeriphClkInitStruct.FdcanClockSelection = RCC_FDCANCLKSOURCE_PLL;
+         PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_D2PCLK1;
+         PeriphClkInitStruct.Usart16ClockSelection = RCC_USART16CLKSOURCE_D2PCLK2;
+         PeriphClkInitStruct.UsbClockSelection = RCC_USBCLKSOURCE_PLL;
+         if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
+         {
+            Error_Handler();
+         }
+         qspi_inited = false;
+         return 0;
       }
+      goto usage;
+   }
+   
+   sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
+
+   if (!qspi_inited) {
+      if (sfud_init() == SFUD_SUCCESS)
+      {
+         printf("qspi init OK\r\n");
+         /* enable qspi fast read mode, set four data lines width */
+         sfud_printRet("fast_read_enable", sfud_qspi_fast_read_enable(flash, 4));
+         qspi_inited = true;
+      } else
+         printf("qspi init fail\r\n");
    }
 
-   if (sfud_init() == SFUD_SUCCESS)
-   {
-      printf("qspi init OK\r\n");
-      /* enable qspi fast read mode, set four data lines width */
-      sfud_qspi_fast_read_enable(sfud_get_device(SFUD_W25_DEVICE_INDEX), 4);
+   if (strcmp(argv[1], "demo") == 0) {
       sfud_demo(0, sizeof(sfud_demo_test_buf), sfud_demo_test_buf);
-   } else
-      printf("qspi init fail\r\n");
-   return 0;
+      return 0;
+   }
+
+   if (strcmp(argv[1], "read") == 0) {
+      int offset, size;
+      if (argc < 4)
+         goto usage;
+      if (sscanf(argv[2], "%i", &offset) == 1) {
+         if (sscanf(argv[3], "%i", &size) == 1) {
+            uint8_t *buffer = malloc(size);
+            if (!buffer) {
+               perror("malloc buffer");
+               return -1;
+            }
+            sfud_printRet("read", sfud_read(flash, offset, size, buffer));
+            for (int i=0; i<size; i++) {
+               if ((i % 16) == 0) {
+                  printf("\n%04X ", i);
+               }
+               printf("%02X ", buffer[i]);
+            }
+            printf("\n");
+            free(buffer);
+            return 0;
+         }
+      }
+   }
+   
+   if (strcmp(argv[1], "write") == 0) {
+      if (argc < 4)
+         goto usage;
+      int offset;
+      if (sscanf(argv[2], "%i", &offset) != 1)
+         goto usage;
+      int bufSize = argc - 3;
+      if (bufSize < 1)
+         goto usage;
+      uint8_t *buf = malloc(bufSize);
+      if (!buf) {
+         perror("malloc buffer");
+         return -1;
+      }
+      for (int i=3; i<argc; i++) {
+         int data;
+         if (sscanf(argv[i], "%i", &data) != 1) {
+            printf("Error read %s\r\n", argv[i]);
+            goto usage;
+         }
+         buf[i] = data;
+      }
+      sfud_printRet("write", sfud_write(flash, offset, bufSize, buf));
+      free(buf);
+      return 0;
+   }
+   
+   if (strcmp(argv[1], "erase") == 0) {
+      if (argc < 4)
+         goto usage;
+      int offset, size;
+      if (sscanf(argv[2], "%i", &offset) != 1)
+         goto usage;
+      if (sscanf(argv[3], "%i", &size) != 1)
+         goto usage;
+      sfud_printRet("erase", sfud_erase(flash, offset, size));
+      return 0;
+   }
+
+usage:
+   printf("Usage: %s <command>\r\nThe <command> must be:\r\n"
+      "  freq <MHz>                         Set the QSPI frequency\r\n"
+      "  read <offset> <size>               Hexdump from offset, size bytes\r\n"
+      "  write <offset> <byte0> ... <byteN> Write bytes from offset\r\n"
+      "  erase <offset>                     Erase 4K at <offset>\r\n"
+      "  demo                               Start demo on first 1024 bytes\r\n"
+      ,argv[0]);
+   return -1;
 }
 
 static CMDFUNC(cmd_usb)
