@@ -28,7 +28,7 @@
 #include "lwip/ethip6.h"
 #include "ethernetif.h"
 /* USER CODE BEGIN Include for User BSP */
-
+#include <stdio.h>
 /* USER CODE END Include for User BSP */
 #include <string.h>
 
@@ -390,7 +390,7 @@ static struct pbuf * low_level_input(struct netif *netif)
     /* Invalidate data cache for ETH Rx Buffers */
     SCB_InvalidateDCache_by_Addr((uint32_t *)RxBuff.buffer, framelength);
 #endif
-    
+    printf("ETH RX\r\n");
     custom_pbuf  = (struct pbuf_custom*)LWIP_MEMPOOL_ALLOC(RX_POOL);
     custom_pbuf->custom_free_function = pbuf_free_custom;
     

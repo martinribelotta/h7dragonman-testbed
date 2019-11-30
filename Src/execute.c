@@ -12,6 +12,8 @@
 #include <fatfs.h>
 #include <sfud.h>
 #include <usbd_cdc_if.h>
+#include <fatfs.h>
+#include <lwip.h>
 
 #define CMDFUNC(name) int name(int argc, const char *const *argv)
 #define uart485 huart8
@@ -460,8 +462,69 @@ static CMDFUNC(cmd_usb)
 
 static CMDFUNC(cmd_eth)
 {
-   // TODO Implement me
-   return 0;
+   if (argc < 2)
+      goto usage;
+   
+   if (strcmp(argv[1], "phyrd") == 0) {
+      if (argc < 3)
+         goto usage;
+      
+      int reg;
+      if (sscanf(argv[2], "%i", &reg) != 1) {
+         printf("cannot decode register number %s\r\n", argv[2]);
+         goto usage;
+      }
+      
+      uint32_t val;
+      HAL_ETH_ReadPHYRegister(&heth, 0, reg, &val); 
+      printf("reg[%02X] = 0x%08X\r\n", reg, (unsigned int) val);
+      for (int bit=0; bit<16; bit++)
+         printf("   bit[%d] = %d\r\n", bit, (int) ((val >> bit) & 1));
+      return 0;
+   }
+   
+   if (strcmp(argv[1], "phywr") == 0) {
+      if (argc < 4)
+         goto usage;
+      
+      int reg;
+      if (sscanf(argv[2], "%i", &reg) != 1) {
+         printf("cannot decode register number %s\r\n", argv[2]);
+         goto usage;
+      }
+      
+      int val;
+      if (sscanf(argv[3], "%i", &val) != 1) {
+         printf("cannot decode register number %s\r\n", argv[3]);
+         goto usage;
+      }
+
+      HAL_ETH_WritePHYRegister(&heth, 0, reg, (uint32_t) val);  
+
+      return 0;
+   }
+   
+   if (strcmp(argv[1], "rawtx") == 0) {
+   }
+
+   if (strcmp(argv[1], "rawrx") == 0) {
+      while (!HAL_ETH_IsRxDataAvailable(&heth)) {
+         if (readKey())
+            return -1;
+      }
+      printf("Data arrived\r\n");
+      uint32_t len;
+      HAL_ETH_GetRxDataLength(&heth, &len);
+      if (len == 0) {
+         printf("Data length is zero\r\n");
+         return -1;
+      }
+      return 0;
+   }
+
+usage:
+   printf("usage: %s <TODO>\r\n", argv[0]);
+   return -1;
 }
 
 static CMDFUNC(cmd_485)

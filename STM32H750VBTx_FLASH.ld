@@ -177,23 +177,16 @@ SECTIONS
     . = ALIGN(8);
   } >DTCMRAM
 
-  .RxDecripSection (NOLOAD) : ALIGN(16)
-  {
-    *(.RxDecripSection)
-    *(.RxDecripSection*)
-  } > RAM_D2
-
-  .TxDecripSection (NOLOAD) : ALIGN(16)
-  {
+  .lwip_sec (NOLOAD) : {
+    . = ABSOLUTE(0x30040000);
+    *(.RxDecripSection) 
+    
+    . = ABSOLUTE(0x30040060);
     *(.TxDecripSection)
-    *(.TxDecripSection*)
-  } > RAM_D2
-
-  .RxArraySection (NOLOAD) : ALIGN(16)
-  {
-    *(.RxArraySection)
-    *(.RxArraySection*)
-  } > RAM_D2
+    
+    . = ABSOLUTE(0x30040200);
+    *(.RxArraySection) 
+  } >RAM_D2 AT> FLASH
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
