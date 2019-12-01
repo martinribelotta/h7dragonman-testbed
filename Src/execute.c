@@ -523,7 +523,13 @@ static CMDFUNC(cmd_eth)
    }
 
 usage:
-   printf("usage: %s <TODO>\r\n", argv[0]);
+   printf("usage: %s <command>\r\n"
+      " where <command> is one of:\r\n"
+      "   phyrd  <reg>        Read PHY register\r\n"
+      "   phywr  <reg> <val>  Write PHY register\r\n"
+      "   rawtx...            Send raw packet (TODO)\r\n"
+      "   rawrx...            Receive raw packet (TODO)\r\n"
+      , argv[0]);
    return -1;
 }
 
