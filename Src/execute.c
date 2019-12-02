@@ -27,6 +27,7 @@ static CMDFUNC(cmd_gpio);
 static CMDFUNC(cmd_help);
 static CMDFUNC(cmd_mrd);
 static CMDFUNC(cmd_mwr);
+static CMDFUNC(cmd_reset);
 static CMDFUNC(cmd_sdinfo);
 static CMDFUNC(cmd_sdls);
 static CMDFUNC(cmd_qspi);
@@ -50,6 +51,7 @@ struct {
    { "help", cmd_help, "show this help" },
    { "mrd", cmd_mrd, "Memory read" },
    { "mwr", cmd_mwr, "Memory write" },
+   { "reset", cmd_reset, "System reset" },
    { "gpio", cmd_gpio, "gpio subsystem" },
    { "sdinfo", cmd_sdinfo, "show sd information" },
    { "sdls", cmd_sdls, "ls on SDCard" },
@@ -258,6 +260,14 @@ static CMDFUNC(cmd_mwr)
 usage:
    printf("usage: %s <addr> <data> [size:8|16|32]\r\n", argv[0]);
    return -1;
+}
+
+static CMDFUNC(cmd_reset)
+{
+   NVIC_SystemReset();
+   while (1)
+      __WFI();
+   return 0;
 }
 
 static const char *card_type[] = {
