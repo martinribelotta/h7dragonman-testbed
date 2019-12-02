@@ -199,6 +199,7 @@ static CMDFUNC(cmd_mrd)
       if (sscanf(argv[3], "%i", &size) != 1)
          goto usage;
    size /= 8;
+
    printf("\r\n%08lX ", address);
    int nchars = 8+1;
    for (int i=0; i<count; i++) {
@@ -219,7 +220,44 @@ usage:
 
 static CMDFUNC(cmd_mwr)
 {
+   // mwr <addr> <count> <size>?
+   if (argc < 3)
+      goto usage;
+
+   uint32_t address;
+   uint64_t data;
+   int size = 8;
+
+   if (sscanf(argv[1], "%li", &address) != 1)
+      goto usage;
+
+   if (sscanf(argv[2], "%lli", &data) != 1)
+      goto usage;
+   if (argc > 3)
+      if (sscanf(argv[3], "%i", &size) != 1)
+         goto usage;
+
+   switch(size) {
+   default:
+   case 8:
+      *((uint8_t*) address) = data;
+      break;
+   case 16:
+      *((uint16_t*) address) = data;
+      break;
+   case 32:
+      *((uint32_t*) address) = data;
+      break;
+   case 64:
+      *((uint64_t*) address) = data;
+      break;
+   }
+   printf("Write done\r\n");
    return 0;
+
+usage:
+   printf("usage: %s <addr> <data> [size:8|16|32]\r\n", argv[0]);
+   return -1;
 }
 
 static const char *card_type[] = {
