@@ -25,6 +25,8 @@ extern UART_HandleTypeDef huart1;
 
 static CMDFUNC(cmd_gpio);
 static CMDFUNC(cmd_help);
+static CMDFUNC(cmd_mrd);
+static CMDFUNC(cmd_mwr);
 static CMDFUNC(cmd_sdinfo);
 static CMDFUNC(cmd_sdls);
 static CMDFUNC(cmd_qspi);
@@ -46,6 +48,8 @@ struct {
 } commands[] = {
    { "$?", cmd_retcode, "show last return code" },
    { "help", cmd_help, "show this help" },
+   { "mrd", cmd_mrd, "Memory read" },
+   { "mwr", cmd_mwr, "Memory write" },
    { "gpio", cmd_gpio, "gpio subsystem" },
    { "sdinfo", cmd_sdinfo, "show sd information" },
    { "sdls", cmd_sdls, "ls on SDCard" },
@@ -154,6 +158,67 @@ static CMDFUNC(cmd_help)
       freq_mhz, freq_frac);
    for (int i=0; i< (sizeof(commands)/sizeof(*commands)); i++)
       printf("  %-30s %s\r\n", commands[i].cmd, commands[i].help);
+   return 0;
+}
+
+static int printMemoryCell(int address, int bytes)
+{
+   switch(bytes) {
+   default:
+   case 1:
+      printf("%02X ", *((uint8_t*) address));
+      return 2+1;
+   case 2:
+      printf("%04X ", *((uint16_t*) address));
+      return 4+1;
+   case 4:
+      printf("%08lX ", *((uint32_t*) address));
+      return 8+1;
+   case 8:
+      printf("%016llX ", *((uint64_t*) address));
+      return 16+1;
+   }
+}
+
+static CMDFUNC(cmd_mrd)
+{
+   // mrd <addr> <count> <size>?
+   if (argc < 3)
+      goto usage;
+
+   uint32_t address;
+   uint32_t count;
+   int size = 8;
+
+   if (sscanf(argv[1], "%li", &address) != 1)
+      goto usage;
+
+   if (sscanf(argv[2], "%li", &count) != 1)
+      goto usage;
+   if (argc > 3)
+      if (sscanf(argv[3], "%i", &size) != 1)
+         goto usage;
+   size /= 8;
+   printf("\r\n%08lX ", address);
+   int nchars = 8+1;
+   for (int i=0; i<count; i++) {
+      nchars += printMemoryCell(address, size);
+      address += size;
+      if (nchars > 60) {
+         printf("\r\n%08lX ", address);
+         nchars = 8+1;
+      }
+   }
+   printf("\r\n");
+   return 0;
+
+usage:
+   printf("Usage: %s <addr> <count> [size:8|16|32|64]\r\n", argv[0]);
+   return -1;
+}
+
+static CMDFUNC(cmd_mwr)
+{
    return 0;
 }
 
