@@ -13,3 +13,4 @@ Drivers/CMSIS/NN/*
 Drivers/CMSIS/RTOS*
 Drivers/CMSIS/Core_A/*
 Drivers/CMSIS/Device/*
+compile_commands.json
