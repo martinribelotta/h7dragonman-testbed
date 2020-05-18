@@ -14,3 +14,5 @@ Drivers/CMSIS/RTOS*
 Drivers/CMSIS/Core_A/*
 Drivers/CMSIS/Device/*
 compile_commands.json
+.vscode/.cortex-debug.peripherals.state.json
+.vscode/.cortex-debug.registers.state.json

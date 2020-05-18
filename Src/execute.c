@@ -147,6 +147,16 @@ static CMDFUNC(cmd_gpio)
    return 0;
 }
 
+static const char *fpuType()
+{
+   static const char *typeText[] = {
+      "no fpu",
+      "sp fpu",
+      "dp fpu",
+   };
+   return typeText[SCB_GetFPUType()];
+}
+
 static CMDFUNC(cmd_help)
 {
    uint32_t freq = HAL_RCC_GetSysClockFreq();
@@ -154,10 +164,10 @@ static CMDFUNC(cmd_help)
    int freq_frac = freq % ((int) 1e6);
    printf(
       "Build at %s %s\r\nwith " __VERSION__ "\r\n"
-      "CPU Cortex-M7 running at %d.%d MHz\r\n"
+      "CPU Cortex-M%d running at %d.%d MHz with %s\r\n\r\n"
       "Availables commands:\r\n",
       __DATE__, __TIME__,
-      freq_mhz, freq_frac);
+      __CORTEX_M, freq_mhz, freq_frac, fpuType());
    for (int i=0; i< (sizeof(commands)/sizeof(*commands)); i++)
       printf("  %-30s %s\r\n", commands[i].cmd, commands[i].help);
    return 0;
