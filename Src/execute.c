@@ -15,6 +15,19 @@
 #include <fatfs.h>
 #include <lwip.h>
 
+#include <stm32h7xx_hal_qspi.h>
+
+/* Read Operations */
+#define READ_CMD                             0x03
+#define FAST_READ_CMD                        0x0B
+#define DUAL_OUT_FAST_READ_CMD               0x3B
+#define DUAL_INOUT_FAST_READ_CMD             0xBB
+#define QUAD_OUT_FAST_READ_CMD               0x6B
+#define QUAD_INOUT_FAST_READ_CMD             0xEB
+
+#define N25Q128A_DUMMY_CYCLES_READ           8
+#define N25Q128A_DUMMY_CYCLES_READ_QUAD      10
+
 #define CMDFUNC(name) int name(int argc, const char *const *argv)
 #define uart485 huart8
 
@@ -419,10 +432,63 @@ static void sfud_printRet(const char *func, sfud_err errorCode)
    printf("SFUD %s return: %s\r\n", func, sfud_error_text[errorCode]);
 }
 
+uint8_t BSP_QSPI_MemoryMappedMode(void)
+{
+   extern QSPI_HandleTypeDef hqspi;
+  QSPI_CommandTypeDef      s_command;
+  QSPI_MemoryMappedTypeDef s_mem_mapped_cfg;
+
+  /* Configure the command for the read instruction */
+  s_command.InstructionMode   = QSPI_INSTRUCTION_1_LINE;
+  s_command.Instruction       = QUAD_INOUT_FAST_READ_CMD;
+  s_command.AddressMode       = QSPI_ADDRESS_4_LINES;
+  s_command.AddressSize       = QSPI_ADDRESS_24_BITS;
+  s_command.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
+  s_command.DataMode          = QSPI_DATA_4_LINES;
+  s_command.DummyCycles       = N25Q128A_DUMMY_CYCLES_READ_QUAD;
+  s_command.DdrMode           = QSPI_DDR_MODE_DISABLE;
+  s_command.DdrHoldHalfCycle  = QSPI_DDR_HHC_ANALOG_DELAY;
+  s_command.SIOOMode          = QSPI_SIOO_INST_EVERY_CMD;
+  
+  /* Configure the memory mapped mode */
+  s_mem_mapped_cfg.TimeOutActivation = QSPI_TIMEOUT_COUNTER_ENABLE;
+  s_mem_mapped_cfg.TimeOutPeriod     = 1;
+  
+  if (HAL_QSPI_MemoryMapped(&hqspi, &s_command, &s_mem_mapped_cfg) != HAL_OK)
+  {
+    return -1;
+  }
+
+  return 0;
+}
+
+static void testQPSIMemMap(void)
+{
+   volatile const uint8_t *buffer = (volatile const uint8_t*)(QSPI_BASE);
+   for (int i=0; i<32; i++) {
+      if ((i % 16) == 0) {
+         printf("\n%04X ", i);
+      }
+      printf("%02X ", buffer[i]);
+   }
+}
+
 static CMDFUNC(cmd_qspi)
 {
    if (argc == 1)
       goto usage;
+
+   if (strcmp(argv[1], "mmap") == 0) {
+      printf("Enter in mmap mode\n");
+      if (BSP_QSPI_MemoryMappedMode() == 0) {
+         puts("QSPI in mmap\nTesting mmap:");
+         testQPSIMemMap();
+      } else {
+         puts("QSPI enter mmap error\n");
+      }
+
+      return 0;
+   }
 
    if (strcmp(argv[1], "freq") == 0) {
       int freq;

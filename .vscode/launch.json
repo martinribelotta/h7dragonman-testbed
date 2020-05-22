@@ -5,14 +5,15 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Cortex Debug",
+            "name": "Debug demo",
             "cwd": "${workspaceRoot}",
             "executable": "${workspaceFolder}/build/h7testbed.elf",
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "openocd",
             "configFiles": [ "${workspaceFolder}/openocd.conf" ],
-            "runToMain": true
+            "runToMain": true,
+            "preLaunchTask": "Make all"
         }
     ]
 }

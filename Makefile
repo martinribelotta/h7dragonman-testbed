@@ -309,7 +309,7 @@ clean:
 
 program: $(BUILD_DIR)/$(TARGET).elf
 	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg \
-		-c "program $< verify reset exit"
+		-c "gdb_memory_map disable" -c "program $< verify reset exit"
 
 debug: $(BUILD_DIR)/$(TARGET).elf
 	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg
