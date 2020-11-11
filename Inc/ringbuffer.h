@@ -3,20 +3,19 @@
 
 #include <stdint.h>
 
-typedef struct
-{
+typedef struct {
 
-	uint32_t readPointer;
-	uint32_t writePointer;
-	int32_t size;
+    uint32_t readPointer;
+    uint32_t writePointer;
+    int32_t size;
 
-	void *buffer[];
+    void *buffer[];
 
 } RingBuffer;
 
 RingBuffer *ringBufferInit(int64_t size);
 int ringBufferAdd(RingBuffer *buffer, void *value);
-void * ringBufferGet(RingBuffer *buffer);
+void *ringBufferGet(RingBuffer *buffer);
 void ringBufferDestroy(RingBuffer *buffer);
 
 #endif

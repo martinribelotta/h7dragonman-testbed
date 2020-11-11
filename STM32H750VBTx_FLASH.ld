@@ -187,6 +187,9 @@ SECTIONS
     . = ABSOLUTE(0x30040200);
     *(.RxArraySection) 
   } >RAM_D2 AT> FLASH
+  
+  _eidata = _sidata + SIZEOF(.data);
+  _firmware_size = _eidata - ORIGIN(FLASH);
 
   /* Remove information from the standard libraries */
   /DISCARD/ :

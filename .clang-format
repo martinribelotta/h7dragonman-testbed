@@ -1,0 +1,7 @@
+---
+BreakBeforeBraces: Linux
+IndentWidth: '4'
+SpaceBeforeParens: ControlStatements
+ColumnLimit: 120
+
+...
