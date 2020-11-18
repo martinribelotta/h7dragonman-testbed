@@ -1,7 +1,7 @@
 {
     "configurations": [
         {
-            "name": "STM32H7",
+            "name": "STM32H7 main",
             "includePath": [
                 "${workspaceFolder}/sfud/inc",
                 "${workspaceFolder}/Inc",
@@ -33,7 +33,7 @@
                 "-mcpu=cortex-m7",
                 "-mthumb",
                 "-mfpu=fpv5-d16",
-                "-mfloat-abi=hard",             
+                "-mfloat-abi=hard",
                 "-Os",
                 "-Wall",
                 "-fdata-sections",
@@ -41,11 +41,56 @@
                 "-g",
                 "-gdwarf-2"
             ],
-            "compilerPath": "/opt/gcc-arm-embedded/bin/arm-none-eabi-gcc",
+            "compilerPath": "arm-none-eabi-gcc",
             "cStandard": "c11",
             "cppStandard": "c++17",
-            "intelliSenseMode": "gcc-arm",
-            "compileCommands": "${workspaceFolder}/compile_commands.json"
+            "intelliSenseMode": "gcc-arm"
+        },
+        {
+            "name": "STM32H7 qspi loader",
+            "includePath": [
+                "${workspaceFolder}/sfud/inc",
+                "${workspaceFolder}/Inc",
+                "${workspaceFolder}/Drivers/STM32H7xx_HAL_Driver/Inc",
+                "${workspaceFolder}/Drivers/STM32H7xx_HAL_Driver/Inc/Legacy",
+                "${workspaceFolder}/Middlewares/Third_Party/FatFs/src",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32H7xx/Include",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/system",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include/netif/ppp",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include/lwip",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include/lwip/apps",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include/lwip/priv",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include/lwip/prot",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include/netif",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include/posix",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/src/include/posix/sys",
+                "${workspaceFolder}/Middlewares/Third_Party/LwIP/system/arch",
+                "${workspaceFolder}/Middlewares/ST/STM32_USB_Device_Library/Core/Inc",
+                "${workspaceFolder}/Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc",
+                "${workspaceFolder}/Drivers/CMSIS/Include"
+            ],
+            "defines": [
+                "USE_HAL_DRIVER",
+                "STM32H750xx",
+                "LWIP_DEBUG"
+            ],
+            "compilerArgs": [
+                "-mcpu=cortex-m7",
+                "-mthumb",
+                "-mfpu=fpv5-d16",
+                "-mfloat-abi=hard",
+                "-Os",
+                "-Wall",
+                "-fdata-sections",
+                "-ffunction-sections",
+                "-g",
+                "-gdwarf-2"
+            ],
+            "compilerPath": "arm-none-eabi-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-arm"
         }
     ],
     "version": 4
