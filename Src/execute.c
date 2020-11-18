@@ -437,18 +437,22 @@ uint8_t BSP_QSPI_MemoryMappedMode(void)
         return -1;
     }
 
+    SCB_CleanInvalidateDCache_by_Addr((uint32_t *)QSPI_BASE, 1 << hqspi.Init.FlashSize);
+
     return 0;
 }
 
 static void testQPSIMemMap(void)
 {
+    const int size = 32;
     volatile const uint8_t *buffer = (volatile const uint8_t *)(QSPI_BASE);
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < size; i++) {
         if ((i % 16) == 0) {
             printf("\n%04X ", i);
         }
         printf("%02X ", buffer[i]);
     }
+    printf("\n");
 }
 
 static CMDFUNC(cmd_qspi)
@@ -457,14 +461,30 @@ static CMDFUNC(cmd_qspi)
         goto usage;
 
     if (strcmp(argv[1], "mmap") == 0) {
-        printf("Enter in mmap mode\n");
-        if (BSP_QSPI_MemoryMappedMode() == 0) {
-            puts("QSPI in mmap\nTesting mmap:");
-            testQPSIMemMap();
-        } else {
-            puts("QSPI enter mmap error\n");
+        if (strcmp(argv[2], "on") == 0) {
+            printf("Enter in mmap mode\n");
+            if (BSP_QSPI_MemoryMappedMode() == 0) {
+                puts("QSPI in mmap\nTesting mmap:");
+                return 0;
+            } else {
+                puts("QSPI enter mmap error\n");
+                return -1;
+            }
         }
-
+        if (strcmp(argv[2], "off") == 0) {
+            extern QSPI_HandleTypeDef hqspi;
+            extern void MX_QUADSPI_Init(void);
+            puts("Restart qspi");
+            HAL_QSPI_DeInit(&hqspi);
+            MX_QUADSPI_Init();
+            puts("Done");
+            return 0;
+        }
+        if (strcmp(argv[2], "test") == 0) {
+            testQPSIMemMap();
+            return 0;
+        }
+        printf("Unknown action: %s\n%s on|off|test\n", argv[1], argv[0]);
         return 0;
     }
 
