@@ -134,7 +134,7 @@ void ReportHardFault(uint32_t *stack_frame, uint32_t exc)
     }
     printf("MemManage fault status:\n");
     if (CHECK_BIT(cfsr, MMARVALID)) {
-        printf(" - MMAR holds a valid address: %08X\n", mmar);
+        printf(" - MMAR holds a valid address: 0x%08lX\n", mmar);
     } else {
         printf(" - MMAR holds an invalid address.\n");
     }
@@ -155,7 +155,7 @@ void ReportHardFault(uint32_t *stack_frame, uint32_t exc)
     }
     printf("Bus fault status:\n");
     if (CHECK_BIT(cfsr, BFARVALID)) {
-        printf(" - BFAR holds a valid address: %08X\n", bfar);
+        printf(" - BFAR holds a valid address: 0x%08lX\n", bfar);
     } else {
         printf(" - BFAR holds an invalid address.\n");
     }
@@ -198,8 +198,13 @@ void ReportHardFault(uint32_t *stack_frame, uint32_t exc)
         printf(" - The processor has attempted to execute an undefined instruction.\n");
     }
     printf("End Of report\r\n");
+
+    __DSB();
+    __ISB();
     /* Breakpoint. */
     __asm volatile("BKPT #0");
+
+    HAL_NVIC_SystemReset();
 
     /* Infinite loop to stop the execution. */
     while (1)

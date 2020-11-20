@@ -212,40 +212,50 @@ AS_DEFS =
 
 # C defines
 C_DEFS =  \
--DUSE_HAL_DRIVER \
--DSTM32H750xx \
--DLWIP_DEBUG
+USE_HAL_DRIVER \
+STM32H750xx \
+LWIP_DEBUG
 
 # AS includes
 AS_INCLUDES = 
 
 # C includes
 C_INCLUDES =  \
--Isfud/inc \
--IInc \
--IDrivers/STM32H7xx_HAL_Driver/Inc \
--IDrivers/STM32H7xx_HAL_Driver/Inc/Legacy \
--IMiddlewares/Third_Party/FatFs/src \
--IDrivers/CMSIS/Device/ST/STM32H7xx/Include \
--IMiddlewares/Third_Party/LwIP/src/include \
--IMiddlewares/Third_Party/LwIP/system \
--IMiddlewares/Third_Party/LwIP/src/include/netif/ppp \
--IMiddlewares/Third_Party/LwIP/src/include/lwip \
--IMiddlewares/Third_Party/LwIP/src/include/lwip/apps \
--IMiddlewares/Third_Party/LwIP/src/include/lwip/priv \
--IMiddlewares/Third_Party/LwIP/src/include/lwip/prot \
--IMiddlewares/Third_Party/LwIP/src/include/netif \
--IMiddlewares/Third_Party/LwIP/src/include/posix \
--IMiddlewares/Third_Party/LwIP/src/include/posix/sys \
--IMiddlewares/Third_Party/LwIP/system/arch \
--IMiddlewares/ST/STM32_USB_Device_Library/Core/Inc \
--IMiddlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc \
--IDrivers/CMSIS/Include
+sfud/inc \
+Inc \
+Drivers/STM32H7xx_HAL_Driver/Inc \
+Drivers/STM32H7xx_HAL_Driver/Inc/Legacy \
+Middlewares/Third_Party/FatFs/src \
+Drivers/CMSIS/Device/ST/STM32H7xx/Include \
+Middlewares/Third_Party/LwIP/src/include \
+Middlewares/Third_Party/LwIP/system \
+Middlewares/Third_Party/LwIP/src/include/netif/ppp \
+Middlewares/Third_Party/LwIP/src/include/lwip \
+Middlewares/Third_Party/LwIP/src/include/lwip/apps \
+Middlewares/Third_Party/LwIP/src/include/lwip/priv \
+Middlewares/Third_Party/LwIP/src/include/lwip/prot \
+Middlewares/Third_Party/LwIP/src/include/netif \
+Middlewares/Third_Party/LwIP/src/include/posix \
+Middlewares/Third_Party/LwIP/src/include/posix/sys \
+Middlewares/Third_Party/LwIP/system/arch \
+Middlewares/ST/STM32_USB_Device_Library/Core/Inc \
+Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc \
+Drivers/CMSIS/Include
 
 # compile gcc flags
-ASFLAGS = $(MCU) $(AS_DEFS) $(AS_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+EXTRA_FLAGS = -Wall -fdata-sections -ffunction-sections
 
-CFLAGS = $(MCU) $(C_DEFS) $(C_INCLUDES) $(OPT) -Wall -fdata-sections -ffunction-sections
+COMMON_FLAGS = $(MCU)
+COMMON_FLAGS += $(OPT)
+COMMON_FLAGS += $(EXTRA_FLAGS)
+
+ASFLAGS = $(COMMON_FLAGS)
+ASFLAGS += $(AS_DEFS)
+ASFLAGS += $(AS_INCLUDES)
+
+CFLAGS = $(COMMON_FLAGS)
+CFLAGS += $(addprefix -D, $(C_DEFS))
+CFLAGS += $(addprefix -I, $(C_INCLUDES))
 
 ifeq ($(DEBUG), 1)
 CFLAGS += -g -gdwarf-2
@@ -322,15 +332,17 @@ $(BUILD_DIR):
 #######################################
 # clean up
 #######################################
+.PHONY: clean program debug loadqspi runqspi
+
 clean:
 	-rm -fR $(BUILD_DIR)
 
 program: $(BUILD_DIR)/$(TARGET).elf
-	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg \
+	@openocd -f openocd.cfg \
 		-c "gdb_memory_map disable" -c "program $< verify reset exit"
 
 debug: $(BUILD_DIR)/$(TARGET).elf
-	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg
+	@openocd -f openocd.cfg
 
 $(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
 
@@ -340,9 +352,94 @@ loadqspi: $(BUILD_DIR)/$(TARGET).bin
 runqspi: $(BUILD_DIR)/$(TARGET).bin
 	$(MAKE) -C qspiloader run BINARY_FILE=
 
+.PHONY: .vscode-integration
+
+PHONY_TARGETS:=$(filter-out .%, $(shell grep -E '^.PHONY:' $(firstword $(MAKEFILE_LIST)) | cut -f 2 -d ':'))
+
 #######################################
 # dependencies
 #######################################
--include $(wildcard $(BUILD_DIR)/*.d)
+-include $(wildcard $(BUILD_DIR)/obj/*.d)
+
+COMMA:=,
+QUOTE:="
+EMPTY:=
+OBRACK:={
+CBRACK:=}
+IDENT:=$(EMPTY)				$(EMPTY)
+IDENT2:=$(EMPTY)        $(EMPTY)
+SPACE:=$(EMPTY) $(EMPTY)
+NL:=\n
+
+define DOT_VSCODE_C_CPP_PROPERTIES
+{
+    "configurations": [
+        {
+            "name": "$(TARGET)",
+            "includePath": [
+$(IDENT)$(subst $(SPACE),$(COMMA)$(NL)$(IDENT),$(addsuffix $(QUOTE), $(addprefix $(QUOTE)$${workspaceFolder}/, $(C_INCLUDES))))
+            ],
+            "defines": [
+$(IDENT)$(subst $(SPACE),$(COMMA)$(NL)$(IDENT),$(addsuffix $(QUOTE), $(addprefix $(QUOTE), $(C_DEFS))))
+            ],
+            "compilerArgs": [
+$(IDENT)$(subst $(SPACE),$(COMMA)$(NL)$(IDENT),$(addsuffix $(QUOTE), $(addprefix $(QUOTE), $(COMMON_FLAGS) $(OPT_FLAGS))))
+            ],
+            "compilerPath": "$(CC)",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-arm"
+        }
+    ],
+    "version": 4
+}
+endef
+export DOT_VSCODE_C_CPP_PROPERTIES
+
+define TASK_TEMPLATE
+{
+            "problemMatcher": "$$gcc",
+            "type": "shell",
+            "group": "build",
+            "label": "make $1",
+            "command": "make $1"
+        }
+endef
+
+define DOT_VSCODE_TASKS
+{
+    "version": "2.0.0",
+    "tasks": [
+$(IDENT2)$(subst $(CBRACK) $(OBRACK),$(CBRACK)$(COMMA)\n$(IDENT2)$(OBRACK),$(foreach t,$(PHONY_TARGETS),$(call TASK_TEMPLATE,$(t))))
+    ]
+}
+endef
+export DOT_VSCODE_TASKS
+
+define DOT_VSCODE_LAUNCH
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug demo",
+            "cwd": "$${workspaceRoot}",
+            "executable": "$${workspaceFolder}/$(BUILD_DIR)/$(TARGET).elf",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "configFiles": [ "$${workspaceFolder}/openocd.conf" ],
+            "runToMain": true,
+            "preLaunchTask": "Make all"
+        }
+    ]
+}
+endef
+export DOT_VSCODE_LAUNCH
+
+.vscode-integration:
+	@mkdir -p .vscode
+	@echo -n "$$DOT_VSCODE_C_CPP_PROPERTIES" > .vscode/c_cpp_properties.json
+	@echo -n "$$DOT_VSCODE_TASKS" > .vscode/tasks.json
+	@echo -n "$$DOT_VSCODE_LAUNCH" > .vscode/launch.json
 
 # *** EOF ***

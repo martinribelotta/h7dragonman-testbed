@@ -14,6 +14,7 @@
 #include <usbd_cdc_if.h>
 
 #include <stm32h7xx_hal_qspi.h>
+#include <stm32h7xx_hal_gpio.h>
 
 /* Read Operations */
 #define READ_CMD 0x03
@@ -338,15 +339,19 @@ static CMDFUNC(cmd_sdls)
 
 static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
 {
+    uint32_t a, b;
     sfud_err result = SFUD_SUCCESS;
-    const sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
+    sfud_flash *flash = sfud_get_device(SFUD_W25_DEVICE_INDEX);
     size_t i;
     /* prepare write data */
     for (i = 0; i < size; i++) {
         data[i] = i;
     }
     /* erase test */
+    a = DWT->CYCCNT;
     result = sfud_erase(flash, addr, size);
+    b = DWT->CYCCNT;
+    int erase_clocks = b - a;
     if (result == SFUD_SUCCESS) {
         printf("Erase the %s flash data finish. Start from 0x%08X, size is %u.\r\n", flash->name, (unsigned int)addr,
                size);
@@ -355,7 +360,10 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
         return;
     }
     /* write test */
+    a = DWT->CYCCNT;
     result = sfud_write(flash, addr, size, data);
+    b = DWT->CYCCNT;
+    int write_clocks = b - a;
     if (result == SFUD_SUCCESS) {
         printf("Write the %s flash data finish. Start from 0x%08X, size is %u.\r\n", flash->name, (unsigned int)addr,
                size);
@@ -364,7 +372,10 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
         return;
     }
     /* read test */
+    a = DWT->CYCCNT;
     result = sfud_read(flash, addr, size, data);
+    b = DWT->CYCCNT;
+    int read_clocks = b - a;
     if (result == SFUD_SUCCESS) {
         printf("Read the %s flash data success. Start from 0x%08X, size is %u. The data is:\r\n", flash->name,
                (unsigned int)addr, size);
@@ -392,6 +403,20 @@ static void sfud_demo(uint32_t addr, size_t size, uint8_t *data)
     if (i == size) {
         printf("The %s flash test is success.\r\n", flash->name);
     }
+    int cpu_freq = HAL_RCC_GetSysClockFreq();
+    uint64_t erase_time = (erase_clocks*1000000LL)/cpu_freq;
+    uint64_t write_time = (write_clocks*1000000LL)/cpu_freq;
+    uint64_t read_time = (read_clocks*1000000LL)/cpu_freq;
+    printf("Performance at %d cpu freq:\n"
+           "       clocks     time [us]\n"
+           "erase: %-10d %-10d\n"
+           "write: %-10d %-10d\n"
+           "read:  %-10d %-10d\n"
+           "",
+           cpu_freq,
+           erase_clocks, (int) erase_time,
+           write_clocks, (int) write_time,
+           read_clocks, (int) read_time);
 }
 
 #define SFUD_DEMO_TEST_BUFFER_SIZE 1024
@@ -453,6 +478,98 @@ static void testQPSIMemMap(void)
         printf("%02X ", buffer[i]);
     }
     printf("\n");
+}
+
+static bool flash_busy(sfud_flash *flash)
+{
+    uint8_t status;
+    sfud_read_status(flash, &status);
+    return (status & 1) != 0;
+}
+
+static sfud_err write_enable(const sfud_flash *flash) {
+    sfud_err result = SFUD_SUCCESS;
+    uint8_t cmd, register_status;
+    cmd = SFUD_CMD_WRITE_ENABLE;
+
+    result = flash->spi.wr(&flash->spi, &cmd, 1, NULL, 0);
+
+    if (result == SFUD_SUCCESS) {
+        result = sfud_read_status(flash, &register_status);
+    }
+
+    if (result == SFUD_SUCCESS) {
+        if ((register_status & SFUD_STATUS_REGISTER_WEL) == 0) {
+            puts("Error: Can't enable write status.");
+            return SFUD_ERR_WRITE;
+        }
+    }
+
+    return result;
+}
+
+void hpm_disabled(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    /**QUADSPI GPIO Configuration    
+    PE9     ------> QUADSPI_BK2_IO2 --> SIO2/#WP
+    */
+
+    GPIO_InitStruct.Pin = GPIO_PIN_9;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, 1);
+}
+
+sfud_err write_status_config(const sfud_flash *flash, uint8_t status, uint8_t config) {
+    sfud_err result = SFUD_SUCCESS;
+    const sfud_spi *spi = &flash->spi;
+    uint8_t cmd_data[3];
+
+    result = write_enable(flash);
+
+    if (result == SFUD_SUCCESS) {
+        cmd_data[0] = SFUD_CMD_WRITE_STATUS_REGISTER;
+        cmd_data[1] = status;
+        cmd_data[2] = 0;
+        result = spi->wr(spi, cmd_data, 3, NULL, 0);
+    }
+
+    if (result != SFUD_SUCCESS) {
+        puts("Error: Write_status register failed.");
+    }
+
+    return result;
+}
+
+static bool enable_quad_mode(sfud_flash *flash)
+{
+    uint8_t status;
+    hpm_disabled();
+    while (flash_busy(flash)) {
+    }
+    sfud_read_status(flash, &status);
+    printf("status previos of enable quad 0x%02x\n", status);
+    write_status_config(flash, (1 << 6), 0);
+    while (flash_busy(flash)) {
+    }
+    for (int i=0; i<1000; i++) {
+        sfud_read_status(flash, &status);
+        if (status & (1<<6)) {
+            break;
+        }
+    }
+    printf("new status 0x%02X\n", status);
+
+    if ((status & (1<<6))==0) {
+        puts("Cannot set qspi enable");
+        return false;
+    }
+    extern QSPI_HandleTypeDef hqspi;
+    HAL_QSPI_MspInit(&hqspi);
+    return true;
 }
 
 static CMDFUNC(cmd_qspi)
@@ -525,6 +642,7 @@ static CMDFUNC(cmd_qspi)
     if (!qspi_inited) {
         if (sfud_init() == SFUD_SUCCESS) {
             printf("qspi init OK\r\n");
+            enable_quad_mode(flash);
             /* enable qspi fast read mode, set four data lines width */
             sfud_printRet("fast_read_enable", sfud_qspi_fast_read_enable(flash, 4));
             qspi_inited = true;
@@ -607,7 +725,8 @@ usage:
            "  read <offset> <size>               Hexdump from offset, size bytes\r\n"
            "  write <offset> <byte0> ... <byteN> Write bytes from offset\r\n"
            "  erase <offset>                     Erase 4K at <offset>\r\n"
-           "  demo                               Start demo on first 1024 bytes\r\n",
+           "  demo                               Start demo on first 1024 bytes\r\n"
+           "  mmap on|off|demo                   QSPI memory mapped commands\r\n",
            argv[0]);
     return -1;
 }

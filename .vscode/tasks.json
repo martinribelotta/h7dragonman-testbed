@@ -1,21 +1,47 @@
 {
-    // See https://go.microsoft.com/fwlink/?LinkId=733558
-    // for the documentation about the tasks.json format
     "version": "2.0.0",
     "tasks": [
         {
             "problemMatcher": "$gcc",
             "type": "shell",
             "group": "build",
-            "label": "Make all",
+            "label": "make all",
             "command": "make all"
         },
         {
             "problemMatcher": "$gcc",
             "type": "shell",
             "group": "build",
-            "label": "Make clean",
+            "label": "make clean",
             "command": "make clean"
+        },
+        {
+            "problemMatcher": "$gcc",
+            "type": "shell",
+            "group": "build",
+            "label": "make program",
+            "command": "make program"
+        },
+        {
+            "problemMatcher": "$gcc",
+            "type": "shell",
+            "group": "build",
+            "label": "make debug",
+            "command": "make debug"
+        },
+        {
+            "problemMatcher": "$gcc",
+            "type": "shell",
+            "group": "build",
+            "label": "make loadqspi",
+            "command": "make loadqspi"
+        },
+        {
+            "problemMatcher": "$gcc",
+            "type": "shell",
+            "group": "build",
+            "label": "make runqspi",
+            "command": "make runqspi"
         }
     ]
 }

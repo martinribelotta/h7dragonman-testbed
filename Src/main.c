@@ -90,7 +90,8 @@ void mrl_print(const char *str) { HAL_UART_Transmit(&huart1, (uint8_t *)str, str
 int main(void)
 {
     /* USER CODE BEGIN 1 */
-
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Pos;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
     /* USER CODE END 1 */
 
     /* Enable I-Cache---------------------------------------------------------*/
