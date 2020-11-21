@@ -338,11 +338,11 @@ clean:
 	-rm -fR $(BUILD_DIR)
 
 program: $(BUILD_DIR)/$(TARGET).elf
-	@openocd -f openocd.cfg \
+	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg \
 		-c "gdb_memory_map disable" -c "program $< verify reset exit"
 
 debug: $(BUILD_DIR)/$(TARGET).elf
-	@openocd -f openocd.cfg
+	@openocd -f interface/cmsis-dap.cfg -f target/stm32h7x.cfg
 
 $(BUILD_DIR)/$(TARGET).bin: $(BUILD_DIR)/$(TARGET).elf
 
@@ -427,7 +427,10 @@ define DOT_VSCODE_LAUNCH
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "openocd",
-            "configFiles": [ "$${workspaceFolder}/openocd.conf" ],
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/stm32h7x.cfg"
+            ],
             "runToMain": true,
             "preLaunchTask": "Make all"
         }
