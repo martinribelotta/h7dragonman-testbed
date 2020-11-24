@@ -8,9 +8,12 @@
             "request": "launch",
             "type": "cortex-debug",
             "servertype": "openocd",
-            "configFiles": [ "${workspaceFolder}/openocd.conf" ],
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/stm32h7x.cfg"
+            ],
             "runToMain": true,
-            "preLaunchTask": "Make all"
+            "preLaunchTask": "make all"
         }
     ]
 }
