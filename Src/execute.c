@@ -508,21 +508,6 @@ static sfud_err write_enable(const sfud_flash *flash) {
     return result;
 }
 
-void hpm_disabled(void)
-{
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
-    /**QUADSPI GPIO Configuration    
-    PE9     ------> QUADSPI_BK2_IO2 --> SIO2/#WP
-    */
-
-    GPIO_InitStruct.Pin = GPIO_PIN_9;
-    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-    GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-    HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9, 1);
-}
-
 sfud_err write_status_config(const sfud_flash *flash, uint8_t status, uint8_t config) {
     sfud_err result = SFUD_SUCCESS;
     const sfud_spi *spi = &flash->spi;
@@ -547,28 +532,32 @@ sfud_err write_status_config(const sfud_flash *flash, uint8_t status, uint8_t co
 static bool enable_quad_mode(sfud_flash *flash)
 {
     uint8_t status;
-    hpm_disabled();
-    while (flash_busy(flash)) {
-    }
+#define QUAD_EN_Msk (1<<6)
     sfud_read_status(flash, &status);
-    printf("status previos of enable quad 0x%02x\n", status);
-    write_status_config(flash, (1 << 6), 0);
+    if (status & QUAD_EN_Msk) {
+        printf("Already Quad enable\n");
+        return true;
+    }
+    printf("Enabling Quad mode\n"
+           "status previos of enable quad 0x%02x\n", status);
+    write_status_config(flash, QUAD_EN_Msk, 0);
     while (flash_busy(flash)) {
     }
     for (int i=0; i<1000; i++) {
         sfud_read_status(flash, &status);
-        if (status & (1<<6)) {
+        if (status & QUAD_EN_Msk) {
             break;
         }
     }
     printf("new status 0x%02X\n", status);
 
-    if ((status & (1<<6))==0) {
+    if ((status & QUAD_EN_Msk)==0) {
         puts("Cannot set qspi enable");
         return false;
     }
     extern QSPI_HandleTypeDef hqspi;
     HAL_QSPI_MspInit(&hqspi);
+#undef QUAD_EN_Msk
     return true;
 }
 
