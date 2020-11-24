@@ -104,7 +104,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
  */
 static sfud_err qspi_read(const struct __sfud_spi *spi, uint32_t addr, sfud_qspi_read_cmd_format *qspi_read_cmd_format, uint8_t *read_buf, size_t read_size)
 {
-    
+
     sfud_err result = SFUD_SUCCESS;
     QSPI_CommandTypeDef Cmdhandler;
     extern QSPI_HandleTypeDef hqspi;
@@ -124,7 +124,7 @@ static sfud_err qspi_read(const struct __sfud_spi *spi, uint32_t addr, sfud_qspi
     {
         Cmdhandler.InstructionMode = QSPI_INSTRUCTION_4_LINES;
     }
-    
+
     Cmdhandler.Address = addr;
     Cmdhandler.AddressSize = QSPI_ADDRESS_24_BITS;
     if(qspi_read_cmd_format->address_lines == 0)
@@ -197,21 +197,21 @@ sfud_err sfud_spi_port_init(sfud_flash *flash)
 
     switch (flash->index)
     {
-        case SFUD_W25_DEVICE_INDEX:
-        {
-            /* set the interfaces and data */
-            flash->spi.wr = spi_write_read;
-            flash->spi.qspi_read = qspi_read;
-            flash->spi.lock = spi_lock;
-            flash->spi.unlock = spi_unlock;
-            flash->spi.user_data = &spi1;
-            /* about 100 microsecond delay */
-            flash->retry.delay = retry_delay_100us;
-            /* adout 60 seconds timeout */
-            flash->retry.times = 60 * 10000;
+    case SFUD_W25_DEVICE_INDEX:
+    {
+        /* set the interfaces and data */
+        flash->spi.wr = spi_write_read;
+        flash->spi.qspi_read = qspi_read;
+        flash->spi.lock = spi_lock;
+        flash->spi.unlock = spi_unlock;
+        flash->spi.user_data = &spi1;
+        /* about 100 microsecond delay */
+        flash->retry.delay = retry_delay_100us;
+        /* adout 60 seconds timeout */
+        flash->retry.times = 60 * 10000;
 
-            break;
-        }
+        break;
+    }
     }
 
     return result;
@@ -288,7 +288,13 @@ sfud_err qspi_send_then_recv(const void *send_buf, size_t send_length, void *rec
         }
         else
         {
-            return SFUD_ERR_READ;
+            if (send_length < 3)
+            {
+                return SFUD_ERR_READ;
+            }
+            Cmdhandler.Address = 0;
+            Cmdhandler.AddressMode = QSPI_ADDRESS_NONE;
+            Cmdhandler.AddressSize = 0;
         }
         Cmdhandler.AddressMode = QSPI_ADDRESS_1_LINE;
     }
@@ -303,7 +309,7 @@ sfud_err qspi_send_then_recv(const void *send_buf, size_t send_length, void *rec
     Cmdhandler.AlternateBytes = 0;
     Cmdhandler.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
     Cmdhandler.AlternateBytesSize = 0;
-    
+
     Cmdhandler.SIOOMode = QSPI_SIOO_INST_EVERY_CMD;
     Cmdhandler.AlternateByteMode = QSPI_ALTERNATE_BYTES_NONE;
     Cmdhandler.DdrMode = QSPI_DDR_MODE_DISABLE;
@@ -326,7 +332,7 @@ sfud_err qspi_send_then_recv(const void *send_buf, size_t send_length, void *rec
         Cmdhandler.DataMode = QSPI_DATA_1_LINE;
         Cmdhandler.NbData = recv_length;
         HAL_QSPI_Command(&hqspi, &Cmdhandler, 5000);
-        
+
         if (recv_length != 0)
         {
             if (HAL_QSPI_Receive(&hqspi, recv_buf, 5000) != HAL_OK)
@@ -358,7 +364,7 @@ sfud_err qspi_send_then_recv(const void *send_buf, size_t send_length, void *rec
         /* set send buf and send size */
         Cmdhandler.NbData = send_length - count;
         HAL_QSPI_Command(&hqspi, &Cmdhandler, 5000);
-        
+
         if (send_length - count > 0)
         {
             if (HAL_QSPI_Transmit(&hqspi, (uint8_t *)(ptr + count), 5000) != HAL_OK)
@@ -368,7 +374,7 @@ sfud_err qspi_send_then_recv(const void *send_buf, size_t send_length, void *rec
                 result = SFUD_ERR_WRITE;
             }
         }
-        
+
         return result;
     }
 }

@@ -173,7 +173,7 @@ typedef struct {
     /* A25LQ64 */                                                                                  \
     {SFUD_MF_ID_AMIC, 0x40, 0x17, NORMAL_SPI_READ|DUAL_OUTPUT|DUAL_IO|QUAD_IO},                    \
     /* MX25L3206E and KH25L3206E */                                                                \
-    {SFUD_MF_ID_MICRONIX, 0x20, 0x16, NORMAL_SPI_READ|DUAL_OUTPUT},                                \
+    {SFUD_MF_ID_MICRONIX, 0x20, 0x16, NORMAL_SPI_READ|DUAL_OUTPUT|DUAL_IO|QUAD_IO},                \
     /* GD25Q64B */                                                                                 \
     {SFUD_MF_ID_GIGADEVICE, 0x40, 0x17, NORMAL_SPI_READ|DUAL_OUTPUT},                              \
 }
